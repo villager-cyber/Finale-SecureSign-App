@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureSign - Verify Document</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <!-- PDF.js for PDF processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Crypto-JS for hashing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation Header -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/dashboard" class="text-2xl font-bold text-gray-800 flex items-center">
+                            <span class="text-3xl mr-2">🔒</span> SecureSign
+                        </a>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/dashboard" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Dashboard
+                        </a>
+                        <a href="/documents" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            My Documents
+                        </a>
+                        <a href="/verify" class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Verify Document
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="ml-4 flex items-center md:ml-6">
+                        <span id="user-name" class="text-gray-500 mr-4">
+                            Loading...
+                        </span>
+                        <button
+                            id="logout-button"
+                            class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-3xl mx-auto px-4 py-8">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">Verify Document Authenticity</h1>
+        
+        <!-- Error Message -->
+        <div id="error-container" class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 hidden">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p id="error-message" class="text-sm text-red-700"></p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+            <!-- File Upload Section -->
+            <div class="px-6 py-8 border-b border-gray-200">
+                <div class="text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <h2 class="mt-2 text-lg font-medium text-gray-900">Verify Document Authenticity</h2>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Upload a document that was previously signed using SecureSign to verify its authenticity and integrity.
+                    </p>
+                    
+                    <div class="mt-6">
+                        <div id="drop-area" class="text-center border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-blue-500 transition duration-150">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <label
+                                for="file-upload"
+                                class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                            >
+                                <span>Upload a signed document</span>
+                                <input 
+                                    id="file-upload" 
+                                    name="file-upload" 
+                                    type="file" 
+                                    class="sr-only" 
+                                    accept=".pdf"
+                                />
+                            </label>
+                            <p class="mt-1 text-xs text-gray-500">
+                                PDF files only, up to 10MB
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div id="selected-file" class="mt-4 text-sm text-center hidden">
+                        <div class="flex items-center justify-center">
+                            <svg class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span id="file-name" class="ml-2 text-gray-700">document.pdf</span>
+                            <button
+                                id="remove-file"
+                                class="ml-2 text-sm text-red-600 hover:text-red-800"
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Document ID Input (Optional) -->
+                <div class="mt-6">
+                    <label for="document-id" class="block text-sm font-medium text-gray-700">
+                        Document ID (Optional)
+                    </label>
+                    <div class="mt-1 flex rounded-md shadow-sm">
+                        <input
+                            type="text"
+                            name="document-id"
+                            id="document-id"
+                            class="flex-1 min-w-0 block w-full px-3 py-2 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-gray-300"
+                            placeholder="Enter document ID if you have it"
+                        />
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">
+                        Providing the document ID will speed up verification (found in document metadata)
+                    </p>
+                </div>
+                
+                <div class="mt-6">
+                    <button
+                        type="button"
+                        id="verify-button"
+                        disabled
+                        class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <svg class="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        Verify Document
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Verification Results -->
+        <div id="verification-results" class="mt-8 bg-white shadow rounded-lg overflow-hidden border-l-4 hidden">
+            <div class="px-6 py-5">
+                <div class="flex items-center">
+                    <div id="result-icon-container" class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+                        <svg id="result-icon" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <h3 id="result-title" class="text-lg font-medium">Document Verification</h3>
+                        <p id="result-message" class="text-sm text-gray-600 mt-1">
+                            Verification results will appear here
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Document Details -->
+            <div class="border-t border-gray-200">
+                <div class="px-6 py-4">
+                    <h4 class="text-sm font-medium text-gray-900">Document Information</h4>
+                    <div class="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                        <div class="text-sm">
+                            <p class="text-gray-500">Document ID:</p>
+                            <p id="doc-id" class="font-medium text-gray-900">Unknown</p>
+                        </div>
+                        <div class="text-sm">
+                            <p class="text-gray-500">Original Filename:</p>
+                            <p id="doc-filename" class="font-medium text-gray-900">Unknown</p>
+                        </div>
+                        <div class="text-sm">
+                            <p class="text-gray-500">Created At:</p>
+                            <p id="doc-created" class="font-medium text-gray-900">Unknown</p>
+                        </div>
+                        <div class="text-sm">
+                            <p class="text-gray-500">Status:</p>
+                            <p id="doc-status" class="font-medium text-gray-900">Unknown</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Verification Checks -->
+            <div class="border-t border-gray-200">
+                <div class="px-6 py-4">
+                    <h4 class="text-sm font-medium text-gray-900">Verification Checks</h4>
+                    <ul id="verification-checks" class="mt-2 space-y-2">
+                        <!-- Check items will be added here -->
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Signatures List -->
+            <div class="border-t border-gray-200">
+                <div class="px-6 py-4">
+                    <h4 class="text-sm font-medium text-gray-900">Signatures</h4>
+                    <ul id="signatures-list" class="mt-3 divide-y divide-gray-200">
+                        <!-- Signature items will be added here -->
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Audit Trail Section -->
+            <div class="border-t border-gray-200">
+                <div class="px-6 py-4">
+                    <h4 class="text-sm font-medium text-gray-900">Audit Trail</h4>
+                    <p class="text-xs text-gray-500 mb-2">Complete chronological record of all activities performed on this document</p>
+                    <div class="relative">
+                        <div class="absolute top-0 bottom-0 left-3 w-0.5 bg-gray-200"></div>
+                        <ul id="audit-trail-list" class="relative ml-6 space-y-4">
+                            <!-- Audit trail items will be added here -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 px-6 py-4">
+                <div class="text-xs text-gray-500">
+                    This verification result confirms the document's integrity and the authenticity of all digital signatures according to the SecureSign verification system.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+            <div id="loading-text" class="text-gray-700 font-medium">Verifying document...</div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWf71MsT4AEljGQLBwNkbvayZscOw383Y",
+            authDomain: "digitalsignapplication.firebaseapp.com",
+            projectId: "digitalsignapplication",
+            storageBucket: "digitalsignapplication.firebasestorage.app",
+            messagingSenderId: "437036538199",
+            appId: "1:437036538199:web:cbdec67966ed7d23308612"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const userName = document.getElementById('user-name');
+            const logoutButton = document.getElementById('logout-button');
+            const fileInput = document.getElementById('file-upload');
+            const dropArea = document.getElementById('drop-area');
+            const fileName = document.getElementById('file-name');
+            const selectedFile = document.getElementById('selected-file');
+            const removeFileButton = document.getElementById('remove-file');
+            const documentIdInput = document.getElementById('document-id');
+            const verifyButton = document.getElementById('verify-button');
+            const errorContainer = document.getElementById('error-container');
+            const errorMessage = document.getElementById('error-message');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+            const verificationResults = document.getElementById('verification-results');
+            const resultIconContainer = document.getElementById('result-icon-container');
+            const resultIcon = document.getElementById('result-icon');
+            const resultTitle = document.getElementById('result-title');
+            const resultMessage = document.getElementById('result-message');
+            const verificationChecks = document.getElementById('verification-checks');
+            const signaturesList = document.getElementById('signatures-list');
+            const docId = document.getElementById('doc-id');
+            const docFilename = document.getElementById('doc-filename');
+            const docCreated = document.getElementById('doc-created');
+            const docStatus = document.getElementById('doc-status');
+            const verificationCodeInput = document.getElementById('verification-code-input');
+            if (verificationCodeInput) {
+                verificationCodeInput.addEventListener('input', function() {
+                    // Enable verify button if verification code has sufficient length (at least 8 characters)
+                    if (this.value.trim().length >= 8) {
+                        verifyButton.disabled = false;
+                    } else if (!selectedFileObj) {
+                        // Only disable if no file is selected
+                        verifyButton.disabled = true;
+                    }
+                });
+            }
+            // Add verification code input
+            checkVerificationCodeInput();
+    
+            // Add an event listener to the document.ready event
+            console.log("Document verification page initialized with enhanced verification features");
+            
+            // File storage
+            let selectedFileObj = null;
+            
+            // Show error message
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    errorContainer.classList.add('hidden');
+                }, 5000);
+            }
+            
+            // Drag and drop functionality
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                dropArea.classList.add('border-blue-500', 'bg-blue-50');
+            }
+            
+            function unhighlight() {
+                dropArea.classList.remove('border-blue-500', 'bg-blue-50');
+            }
+            
+            dropArea.addEventListener('drop', function(e) {
+                const dt = e.dataTransfer;
+                const file = dt.files[0];
+                if (file) {
+                    handleFileSelect(file);
+                }
+            });
+            
+            // File input change event
+            fileInput.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    handleFileSelect(file);
+                }
+            });
+            
+            // Handle file selection
+            function handleFileSelect(file) {
+                // Check file type
+                if (file.type !== 'application/pdf') {
+                    showError('Please upload a PDF document');
+                    return;
+                }
+                
+                // Check file size (max 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    showError('File is too large. Maximum size is 10MB');
+                    return;
+                }
+                
+                // Store file and update UI
+                selectedFileObj = file;
+                fileName.textContent = file.name;
+                selectedFile.classList.remove('hidden');
+                verifyButton.disabled = false;
+                
+                // Hide verification results if showing
+                verificationResults.classList.add('hidden');
+                
+                // Try to extract document ID from the file name
+                try {
+                    // Format could be something like "securesign_092c582d-47d0-4a67-9b03-a5f30e0e07ca.pdf"
+                    const match = file.name.match(/securesign_([0-9a-f-]+)\.pdf/i);
+                    if (match && match[1]) {
+                        documentIdInput.value = match[1];
+                    }
+                } catch (e) {
+                    console.log('Could not extract document ID from filename');
+                }
+            }
+            
+            // Remove file button
+            removeFileButton.addEventListener('click', function() {
+                selectedFileObj = null;
+                fileInput.value = '';
+                selectedFile.classList.add('hidden');
+                verifyButton.disabled = true;
+            });
+            
+            // Extract document metadata from PDF if possible
+            async function extractDocumentMetadata(pdfData) {
+                try {
+                    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+                    const pdf = await loadingTask.promise;
+                    const metadata = await pdf.getMetadata();
+                    
+                    // Return any useful metadata
+                    return {
+                        info: metadata.info || {},
+                        metadata: metadata.metadata ? metadata.metadata.getAll() : {},
+                        documentId: metadata.info?.Subject || null // Sometimes stored in the Subject field
+                    };
+                } catch (error) {
+                    console.error('Error extracting metadata:', error);
+                    return null;
+                }
+            }
+
+            // Add this function to check manually input verification code
+            function checkVerificationCodeInput() {
+                const verificationCodeInput = document.getElementById('verification-code-input');
+                const checkVerificationCodeButton = document.getElementById('check-verification-code');
+                const manualVerificationSection = document.getElementById('manual-verification-section');
+                
+                // When verification button is clicked, check if verification code is provided
+                const verifyButton = document.getElementById('verify-button');
+                const originalClickHandler = verifyButton.onclick;
+                
+                verifyButton.onclick = function() {
+                    const verificationCodeInput = document.getElementById('verification-code-input');
+                    if (verificationCodeInput && verificationCodeInput.value) {
+                        console.log("Using verification code:", verificationCodeInput.value);
+                        // Store verification code in global variable for use in verification process
+                        window.manualVerificationCode = verificationCodeInput.value;
+                    } else {
+                        window.manualVerificationCode = null;
+                    }
+                    
+                    // Call the original verify function
+                    verifyDocument();
+                };
+            }
+
+            // Update the verifyDocument function to use the manual verification code
+            function useManualVerificationCode(verificationResult, documentHash) {
+                if (window.manualVerificationCode && verificationResult.document) {
+                    console.log("Checking manual verification code:", window.manualVerificationCode);
+                    
+                    // Compare with verification code from database
+                    if (verificationResult.document.verification_code === window.manualVerificationCode) {
+                        console.log("Manual verification code matches!");
+                        
+                        verificationResult.verificationCodeValid = true;
+                        verificationResult.checks.push({
+                            name: 'Manual Verification Code Check',
+                            success: true,
+                            message: 'Verification code matches our records'
+                        });
+                        
+                        // Update overall success if verification code is valid
+                        verificationResult.success = true;
+                    } else {
+                        console.log("Manual verification code does not match.");
+                        
+                        verificationResult.verificationCodeValid = false;
+                        verificationResult.checks.push({
+                            name: 'Manual Verification Code Check',
+                            success: false,
+                            message: 'Invalid verification code provided'
+                        });
+                    }
+                }
+                
+                return verificationResult;
+            }
+
+            // Modify the checkAllSigned() function to consider the hash_updated_after_signing flag
+            // In verify.html - verifyDocument function
+            // Enhanced verifyDocument function with better hash comparison logic
+            async function verifyDocument() {
+                try {
+                    // Show loading overlay
+                    loadingOverlay.classList.remove('hidden');
+                    loadingText.textContent = 'Verifying document...';
+                    
+                    // Read file as ArrayBuffer
+                    const fileReader = new FileReader();
+                    
+                    fileReader.onload = async function() {
+                        try {
+                            const fileData = this.result;
+                            const documentId = documentIdInput.value.trim();
+                            
+                            // Calculate document hash using our consistent method
+                            loadingText.textContent = 'Calculating document hash...';
+                            const documentHash = await calculateDocumentHash(fileData);
+                            console.log("Document hash calculated:", documentHash);
+                            
+                            // Extract metadata from PDF to get document ID
+                            loadingText.textContent = 'Extracting document metadata...';
+                            const metadata = await extractPdfMetadata(fileData);
+                            console.log("Extracted PDF metadata:", metadata);
+                            
+                            // Prepare verification data
+                            const formData = new FormData();
+                            formData.append('file', selectedFileObj);
+                            
+                            if (documentId) {
+                                formData.append('document_id', documentId);
+                            }
+                            
+                            // Use verification code if provided
+                            const verificationCodeInput = document.getElementById('verification-code-input');
+                            if (verificationCodeInput && verificationCodeInput.value) {
+                                formData.append('verification_code', verificationCodeInput.value);
+                            }
+                            
+                            // Send data to server for verification
+                            loadingText.textContent = 'Contacting server for verification...';
+                            const apiResponse = await fetch('/api/verify', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            if (!apiResponse.ok) {
+                                throw new Error('Server verification failed: ' + apiResponse.status);
+                            }
+                            
+                            const apiResult = await apiResponse.json();
+                            console.log("API verification result:", apiResult);
+                            
+                            // Create a normalized result object for the display functions
+                            const verificationResult = {
+                                success: apiResult.verified === true,
+                                documentFound: apiResult.success === true,
+                                hashValid: apiResult.hashValid === true,
+                                isSignedVersion: apiResult.isSignedVersion === true,
+                                message: apiResult.message || '',
+                                documentInfo: apiResult.documentInfo || {},
+                                signatures: apiResult.signatures || [],
+                                checks: []
+                            };
+                            
+                            // Add verification checks based on API result
+                            if (verificationResult.documentFound) {
+                                verificationResult.checks.push({
+                                    name: 'Document Found',
+                                    success: true,
+                                    message: 'Document exists in our system'
+                                });
+                            } else {
+                                verificationResult.checks.push({
+                                    name: 'Document Found',
+                                    success: false,
+                                    message: 'Document not found in our system'
+                                });
+                            }
+                            
+                            if (verificationResult.hashValid) {
+                                verificationResult.checks.push({
+                                    name: 'Content Integrity',
+                                    success: true,
+                                    message: 'Document content matches our records'
+                                });
+                            } else if (verificationResult.documentFound) {
+                                verificationResult.checks.push({
+                                    name: 'Content Integrity',
+                                    success: false,
+                                    message: 'Document may have been modified'
+                                });
+                            }
+                            
+                            // Check signature validity
+                            if (verificationResult.signatures && verificationResult.signatures.length > 0) {
+                                const allSignaturesValid = verificationResult.signatures.every(sig => sig.valid !== false);
+                                
+                                verificationResult.signaturesValid = allSignaturesValid;
+                                verificationResult.checks.push({
+                                    name: 'Signature Validity',
+                                    success: allSignaturesValid,
+                                    message: allSignaturesValid 
+                                        ? 'All signatures are valid' 
+                                        : 'One or more signatures could not be verified'
+                                });
+                            }
+                            
+                            // Add additional information from API response
+                            if (apiResult.message) {
+                                verificationResult.checks.push({
+                                    name: 'Server Verification',
+                                    success: apiResult.verified === true,
+                                    message: apiResult.message
+                                });
+                            }
+                            
+                            // Process verification code if provided
+                            if (window.manualVerificationCode) {
+                                verificationResult.verificationCodeValid = apiResult.verificationCodeValid === true;
+                            }
+                            
+                            // Display the verification result
+                            displayVerificationResult(verificationResult);
+                            
+                            // Hide loading overlay
+                            loadingOverlay.classList.add('hidden');
+                            
+                        } catch (error) {
+                            console.error('Error verifying document:', error);
+                            showError('Error verifying document: ' + error.message);
+                            loadingOverlay.classList.add('hidden');
+                        }
+                    };
+                    
+                    fileReader.onerror = function() {
+                        showError('Error reading file');
+                        loadingOverlay.classList.add('hidden');
+                    };
+                    
+                    // Read the file as ArrayBuffer
+                    fileReader.readAsArrayBuffer(selectedFileObj);
+                } catch (error) {
+                    console.error('Error verifying document:', error);
+                    showError('Error verifying document: ' + error.message);
+                    loadingOverlay.classList.add('hidden');
+                }
+            }
+
+            function debugLog(message, data) {
+                console.log(`[SecureSign Debug] ${message}`, data || '');
+            }
+
+            async function useApiVerification() {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', selectedFileObj);
+                    if (documentId) {
+                        formData.append('document_id', documentId);
+                    }
+                    
+                    loadingText.textContent = 'Using API verification...';
+                    debugLog("Sending API verification request", { documentId });
+                    
+                    const apiResponse = await fetch('/api/verify', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const apiResult = await apiResponse.json();
+                    debugLog("API verification result:", apiResult);
+                    
+                    // Process API response...
+                } catch (apiError) {
+                    debugLog("API verification error:", apiError);
+                    console.error('Error using API verification:', apiError);
+                }
+            }
+
+            // Helper function to check verification codes
+            function checkManualVerificationCode(verificationCode, documentData) {
+                // Check if there's a verification code stored in keywords
+                if (documentData.keywords) {
+                    const keywords = documentData.keywords.split(',');
+                    const matches = keywords.some(keyword => 
+                        keyword.trim().toLowerCase() === verificationCode.toLowerCase());
+                    
+                    return { valid: matches };
+                }
+                
+                // Check if there's a verification code directly in document data
+                if (documentData.verification_code) {
+                    return { 
+                        valid: documentData.verification_code === verificationCode
+                    };
+                }
+                
+                return { valid: false };
+            }
+
+            // Function to extract PDF metadata
+            // Extract PDF metadata
+            // Extract PDF metadata with better error handling
+            async function extractPdfMetadata(pdfData) {
+                try {
+                    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+                    const pdf = await loadingTask.promise;
+                    const metadata = await pdf.getMetadata();
+                    
+                    // Debug metadata to help diagnose issues
+                    console.log("Raw PDF metadata:", metadata);
+                    
+                    // Get standard metadata
+                    const info = metadata.info || {};
+                    console.log("PDF info metadata:", info);
+                    
+                    // Extract from various possible fields that could contain document ID
+                    let documentId = null;
+                    
+                    // Try Subject field first (most likely)
+                    if (info.Subject && 
+                        info.Subject.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                        console.log("Subject appears to be a document ID:", info.Subject);
+                        documentId = info.Subject;
+                    }
+                    // Try Keywords field next (might contain verification info)
+                    else if (info.Keywords && info.Keywords.includes('SecureSign')) {
+                        const keywords = info.Keywords.split(',');
+                        for (const keyword of keywords) {
+                            // Look for UUID pattern in keywords
+                            const matches = keyword.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+                            if (matches) {
+                                console.log("Found document ID in keywords:", matches[0]);
+                                documentId = matches[0];
+                                break;
+                            }
+                        }
+                    }
+                    // Try Title field as fallback
+                    else if (info.Title && info.Title.includes('SecureSign Document:')) {
+                        const matches = info.Title.match(/SecureSign Document: ([0-9a-f-]{36})/i);
+                        if (matches && matches[1]) {
+                            console.log("Found document ID in title:", matches[1]);
+                            documentId = matches[1];
+                        }
+                    }
+                    
+                    // Return enhanced metadata
+                    return {
+                        ...info,
+                        document_id: documentId
+                    };
+                } catch (error) {
+                    console.error('Error extracting PDF metadata:', error);
+                    return null;
+                }
+            }
+
+
+            // Calculate document hash - improved to avoid ArrayBuffer detachment
+            // 1. Improved Hash Calculation - handles large documents and multi-signature documents better
+            async function calculateDocumentHash(fileData) {
+                return new Promise((resolve, reject) => {
+                    try {
+                        console.log("Starting hash calculation for file data of size:", fileData.byteLength);
+                        
+                        // Use the entire file for hash calculation (no size limit or sampling)
+                        const dataView = new Uint8Array(fileData);
+                        const wordArray = CryptoJS.lib.WordArray.create(dataView);
+                        const hash = CryptoJS.SHA256(wordArray).toString();
+                        
+                        console.log("Successfully calculated document hash:", hash);
+                        resolve(hash);
+                    } catch (error) {
+                        console.error("Error in hash calculation function:", error);
+                        console.error("Error details:", error.message);
+                        console.error("Error stack:", error.stack);
+                        reject(error);
+                    }
+                });
+            }
+            
+            // Display verification result
+            // Update verification display
+            // Enhanced display function to handle multi-signature verification
+            function displayVerificationResult(result) {
+                // Format the verification result UI
+                if (result.success) {
+                    resultIconContainer.className = 'flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center';
+                    resultIcon.className = 'w-6 h-6 text-green-600';
+                    resultIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />';
+                    resultTitle.textContent = 'Document Verified';
+                    resultTitle.className = 'text-lg font-medium text-green-800';
+                    
+                    // Check if it's a signed document with multiple signatures
+                    if (result.signatures && result.signatures.length > 1) {
+                        resultMessage.textContent = `This document has been verified with ${result.signatures.length} signatures.`;
+                    } else if (result.isSignedVersion) {
+                        resultMessage.textContent = 'This is the signed version of the document. Content is authentic and matches our records.';
+                    } else {
+                        resultMessage.textContent = 'This is the original version of the document. Content is authentic and matches our records.';
+                    }
+                    
+                    verificationResults.className = 'mt-8 bg-white shadow rounded-lg overflow-hidden border-l-4 border-green-500';
+                } else {
+                    resultIconContainer.className = 'flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center';
+                    resultIcon.className = 'w-6 h-6 text-red-600';
+                    resultIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />';
+                    resultTitle.textContent = 'Verification Failed';
+                    resultTitle.className = 'text-lg font-medium text-red-800';
+                    
+                    if (!result.documentFound) {
+                        resultMessage.textContent = 'This document was not found in our system.';
+                    } else if (result.documentFound && !result.hashValid) {
+                        resultMessage.textContent = 'The document appears to have been modified or does not match our records.';
+                    } else {
+                        resultMessage.textContent = 'Verification failed. The document may be invalid or corrupted.';
+                    }
+                    
+                    verificationResults.className = 'mt-8 bg-white shadow rounded-lg overflow-hidden border-l-4 border-red-500';
+                }
+                
+                // FIXED: Properly access document information from the correct location
+                // Use documentInfo field which is what the API returns
+                const documentInfo = result.documentInfo || {};
+                
+                // Set document info if available
+                if (documentInfo) {
+                    docId.textContent = documentInfo.document_id || 'Unknown';
+                    docFilename.textContent = documentInfo.fileName || 'Unknown'; // Note: API returns fileName, not original_filename
+                    docCreated.textContent = formatDate(documentInfo.uploadDate) || 'Unknown'; // API returns uploadDate, not created_at
+                    docStatus.textContent = getStatusText(documentInfo.status) || 'Unknown';
+                    
+                    // For debugging
+                    console.log("Document info received:", documentInfo);
+                } else {
+                    docId.textContent = 'Not found';
+                    docFilename.textContent = 'Not found';
+                    docCreated.textContent = 'Not found';
+                    docStatus.textContent = 'Not found';
+                }
+                
+                // List verification checks
+                verificationChecks.innerHTML = '';
+                if (window.manualVerificationCode) {
+                    const verificationCodeValid = result.verificationCodeValid === true;
+                    verificationChecks.innerHTML += `
+                        <li class="flex items-center mb-2">
+                            <div class="${verificationCodeValid ? 'bg-green-100' : 'bg-red-100'} w-6 h-6 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 ${verificationCodeValid ? 'text-green-600' : 'text-red-600'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    ${verificationCodeValid 
+                                        ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />'
+                                        : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />'}
+                                </svg>
+                            </div>
+                            <span class="ml-2 text-sm font-medium text-gray-900">Verification Code:</span>
+                            <span class="ml-2 text-sm text-gray-500">
+                                ${verificationCodeValid
+                                    ? 'Verification code is valid'
+                                    : 'Verification code is invalid or does not match'}
+                            </span>
+                        </li>
+                    `;
+                }
+                if (result.checks && result.checks.length > 0) {
+                    result.checks.forEach(check => {
+                        const li = document.createElement('li');
+                        li.className = 'flex items-center mb-2';
+                        
+                        li.innerHTML = `
+                            <div class="${check.success ? 'bg-green-100' : 'bg-red-100'} w-6 h-6 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 ${check.success ? 'text-green-600' : 'text-red-600'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    ${check.success 
+                                        ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />'
+                                        : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />'}
+                                </svg>
+                            </div>
+                            <span class="ml-2 text-sm font-medium text-gray-900">${check.name}:</span>
+                            <span class="ml-2 text-sm text-gray-500">${check.message}</span>
+                        `;
+                        
+                        verificationChecks.appendChild(li);
+                    });
+                } else {
+                    const li = document.createElement('li');
+                    li.className = 'py-3 text-center';
+                    li.innerHTML = `<p class="text-sm text-gray-500">No verification details available</p>`;
+                    verificationChecks.appendChild(li);
+                }
+                
+                // FIXED: List signatures if available using the correct data path
+                displaySignaturesList(result);
+                
+                // FIXED: Create audit trail timeline using the correct data path
+                displayAuditTrail(result);
+                
+                // Show verification results
+                verificationResults.classList.remove('hidden');
+                
+                // Scroll to results
+                verificationResults.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            // New function to display the signatures list correctly
+            function displaySignaturesList(result) {
+                const signaturesList = document.getElementById('signatures-list');
+                signaturesList.innerHTML = '';
+                
+                // Debug the full result to see the structure
+                console.log("Full verification result:", result);
+                
+                // First check if we have signatures from the API
+                let signaturesAvailable = result.signatures && result.signatures.length > 0;
+                
+                // If not, try to extract from signature_audit in documentInfo
+                let auditEntries = [];
+                if (!signaturesAvailable && result.documentInfo && result.documentInfo.signature_audit) {
+                    // Handle both array and object structure for signature_audit
+                    if (Array.isArray(result.documentInfo.signature_audit)) {
+                        auditEntries = result.documentInfo.signature_audit;
+                    } else if (typeof result.documentInfo.signature_audit === 'object') {
+                        // Convert object to array format
+                        auditEntries = Object.entries(result.documentInfo.signature_audit).map(([key, value]) => {
+                            // If the key looks like a timestamp, include it
+                            if (key.includes('T') || key.includes('-')) {
+                                return { timestamp: key, ...value };
+                            }
+                            return value;
+                        });
+                    }
+                    console.log("Extracted audit entries:", auditEntries);
+                }
+                
+                // Display signatures if we have them from API
+                if (signaturesAvailable) {
+                    // Enhance signatures with data from audit if possible
+                    if (auditEntries.length > 0) {
+                        result.signatures.forEach(signature => {
+                            // Look for matching audit entry based on ID or email
+                            const matchingAudit = auditEntries.find(entry => 
+                                (entry.email === signature.signerEmail) || 
+                                (entry.placeholders_signed && entry.placeholders_signed.includes(signature.id))
+                            );
+                            
+                            if (matchingAudit) {
+                                signature.ip_address = matchingAudit.ip_address;
+                                // Use audit timestamp if signature timestamp is missing
+                                if (!signature.timestamp && matchingAudit.timestamp) {
+                                    signature.timestamp = matchingAudit.timestamp;
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Display signatures from API with enhanced data
+                    result.signatures.forEach(signature => {
+                        const li = document.createElement('li');
+                        li.className = 'py-3';
+                        
+                        // Extract signature information
+                        let signerName = signature.signerName || signature.signerEmail || 'Unknown signer';
+                        let signerEmail = signature.signerEmail || '';
+                        let timestamp = formatDate(signature.timestamp) || 'Unknown time';
+                        let ipAddress = signature.ip_address || '';
+                        
+                        li.innerHTML = `
+                            <div class="flex items-center">
+                                <div class="bg-green-100 w-6 h-6 rounded-full flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm font-medium text-gray-900">${signerName}</p>
+                                    ${signerEmail ? `<p class="text-xs text-gray-500">Email: ${signerEmail}</p>` : ''}
+                                    ${ipAddress ? `<p class="text-xs text-gray-500">IP: ${ipAddress}</p>` : ''}
+                                    <p class="text-xs text-gray-500">
+                                        Signed: ${timestamp}
+                                    </p>
+                                </div>
+                                <div class="ml-auto">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Valid
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                        
+                        signaturesList.appendChild(li);
+                    });
+                } 
+                // If no signatures from API but we have audit entries, use those
+                else if (auditEntries.length > 0) {
+                    // Display signatures from audit trail
+                    auditEntries.forEach(entry => {
+                        const li = document.createElement('li');
+                        li.className = 'py-3';
+                        
+                        // Extract signature information
+                        let signerEmail = entry.email || 'Unknown';
+                        let timestamp = formatDate(entry.timestamp) || 'Unknown time';
+                        let ipAddress = entry.ip_address || '';
+                        let placeholders = '';
+                        
+                        if (entry.placeholders_signed && entry.placeholders_signed.length > 0) {
+                            placeholders = `Signature positions: ${entry.placeholders_signed.join(', ')}`;
+                        }
+                        
+                        li.innerHTML = `
+                            <div class="flex items-center">
+                                <div class="bg-green-100 w-6 h-6 rounded-full flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm font-medium text-gray-900">${signerEmail}</p>
+                                    ${ipAddress ? `<p class="text-xs text-gray-500">IP: ${ipAddress}</p>` : ''}
+                                    <p class="text-xs text-gray-500">
+                                        Signed: ${timestamp}
+                                    </p>
+                                    ${placeholders ? `<p class="text-xs text-gray-500">${placeholders}</p>` : ''}
+                                </div>
+                                <div class="ml-auto">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Valid
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                        
+                        signaturesList.appendChild(li);
+                    });
+                } else {
+                    // No signatures
+                    const li = document.createElement('li');
+                    li.className = 'py-3';
+                    li.innerHTML = `
+                        <div class="flex items-center justify-center">
+                            <p class="text-sm text-gray-500">No signatures found in this document</p>
+                        </div>
+                    `;
+                    signaturesList.appendChild(li);
+                }
+            }
+
+            // New function to display the audit trail correctly
+            function displayAuditTrail(result) {
+                const auditTrailList = document.getElementById('audit-trail-list');
+                auditTrailList.innerHTML = '';
+                
+                // Get document info from the API response
+                const documentInfo = result.documentInfo || {};
+                
+                // Create an array to hold audit events
+                const auditEvents = [];
+                
+                // 1. Document creation event
+                if (documentInfo.uploadDate) {
+                    auditEvents.push({
+                        type: 'creation',
+                        title: 'Document Created',
+                        timestamp: documentInfo.uploadDate,
+                        details: [
+                            `Document ID: ${documentInfo.document_id || 'Unknown'}`
+                        ]
+                    });
+                }
+                
+                // 2. IMPROVED: Extract audit trail from signature_audit if available
+                if (documentInfo.signature_audit) {
+                    const signatureAudit = documentInfo.signature_audit;
+                    
+                    // Handle both array and object formats
+                    let auditEntries = [];
+                    
+                    if (Array.isArray(signatureAudit)) {
+                        auditEntries = signatureAudit;
+                    } else if (typeof signatureAudit === 'object') {
+                        // Convert object to array format
+                        auditEntries = Object.entries(signatureAudit).map(([key, value]) => {
+                            // If the key looks like a timestamp, include it
+                            if (key.includes('T') || key.includes('-')) {
+                                return { timestamp: key, ...value };
+                            }
+                            return value;
+                        });
+                    }
+                    
+                    // Debug to see what we're working with
+                    console.log("Audit entries for timeline:", auditEntries);
+                    
+                    // Process each audit entry
+                    auditEntries.forEach(entry => {
+                        if (!entry) return; // Skip null entries
+                        
+                        // Skip if no timestamp (needed for proper timeline sorting)
+                        if (!entry.timestamp) return;
+                        
+                        const details = [];
+                        
+                        if (entry.email) {
+                            details.push(`Signer: ${entry.email}`);
+                        }
+                        
+                        if (entry.ip_address) {
+                            details.push(`IP Address: ${entry.ip_address}`);
+                        }
+                        
+                        if (entry.placeholders_signed && entry.placeholders_signed.length > 0) {
+                            details.push(`Signature positions: ${entry.placeholders_signed.join(', ')}`);
+                        }
+                        
+                        auditEvents.push({
+                            type: 'signature',
+                            title: 'Document Signed',
+                            timestamp: entry.timestamp,
+                            details: details
+                        });
+                    });
+                }
+                // 3. If no signature_audit, try using signatures from the API
+                else if (result.signatures && result.signatures.length > 0) {
+                    result.signatures.forEach(signature => {
+                        const details = [];
+                        
+                        if (signature.signerName || signature.signerEmail) {
+                            details.push(`Signer: ${signature.signerName || signature.signerEmail}`);
+                        }
+                        
+                        if (signature.id) {
+                            details.push(`Signature ID: ${signature.id}`);
+                        }
+                        
+                        if (signature.ip_address) {
+                            details.push(`IP Address: ${signature.ip_address}`);
+                        }
+                        
+                        auditEvents.push({
+                            type: 'signature',
+                            title: 'Document Signed',
+                            timestamp: signature.timestamp,
+                            details: details
+                        });
+                    });
+                }
+                
+                // 4. Add document modification event if available
+                if (documentInfo.hash_updated_at && documentInfo.hash_updated_at !== documentInfo.uploadDate) {
+                    auditEvents.push({
+                        type: 'modification',
+                        title: 'Document Updated',
+                        timestamp: documentInfo.hash_updated_at,
+                        details: ['Document was updated after signing']
+                    });
+                } else if (documentInfo.lastSigned && documentInfo.lastSigned !== documentInfo.uploadDate) {
+                    auditEvents.push({
+                        type: 'modification',
+                        title: 'Document Updated',
+                        timestamp: documentInfo.lastSigned,
+                        details: ['Document was updated after signing']
+                    });
+                }
+                
+                // 5. Add verification event (current time)
+                auditEvents.push({
+                    type: 'verification',
+                    title: 'Document Verified',
+                    timestamp: new Date().toISOString(),
+                    details: [`Verification Status: ${result.verified ? 'Valid' : 'Invalid'}`]
+                });
+                
+                // Sort events by timestamp
+                auditEvents.sort((a, b) => {
+                    // Make sure we handle various timestamp formats
+                    try {
+                        const timeA = new Date(a.timestamp || 0);
+                        const timeB = new Date(b.timestamp || 0);
+                        
+                        // Sanity check that these are valid dates
+                        if (isNaN(timeA.getTime())) return -1;
+                        if (isNaN(timeB.getTime())) return 1;
+                        
+                        return timeA - timeB;
+                    } catch (e) {
+                        console.error("Error sorting timestamps:", e);
+                        return 0;
+                    }
+                });
+                
+                // Display each event
+                auditEvents.forEach(event => {
+                    const eventLi = document.createElement('li');
+                    eventLi.className = 'mb-4';
+                    
+                    // Select icon and color based on event type
+                    let iconBgClass = 'bg-blue-100';
+                    let iconTextClass = 'text-blue-600';
+                    let iconSvgPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />';
+                    
+                    if (event.type === 'signature') {
+                        iconBgClass = 'bg-green-100';
+                        iconTextClass = 'text-green-600';
+                        iconSvgPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />';
+                    } else if (event.type === 'verification') {
+                        iconBgClass = 'bg-purple-100';
+                        iconTextClass = 'text-purple-600';
+                        iconSvgPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />';
+                    } else if (event.type === 'modification') {
+                        iconBgClass = 'bg-indigo-100';
+                        iconTextClass = 'text-indigo-600';
+                        iconSvgPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />';
+                    }
+                    
+                    let formattedTime = 'Unknown time';
+                    try {
+                        formattedTime = formatDate(event.timestamp) || 'Unknown time';
+                    } catch (e) {
+                        console.error("Error formatting timestamp:", event.timestamp, e);
+                    }
+                    
+                    eventLi.innerHTML = `
+                        <div class="flex items-center">
+                            <div class="${iconBgClass} rounded-full w-8 h-8 flex items-center justify-center -ml-4 mr-3">
+                                <svg class="w-4 h-4 ${iconTextClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    ${iconSvgPath}
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">${event.title}</p>
+                                <p class="text-xs text-gray-500">${formattedTime}</p>
+                                ${event.details.map(detail => `<p class="text-xs text-gray-500">${detail}</p>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                    auditTrailList.appendChild(eventLi);
+                });
+                
+                // If no events, show message
+                if (auditEvents.length === 0) {
+                    const emptyLi = document.createElement('li');
+                    emptyLi.innerHTML = `
+                        <div class="flex items-center justify-center py-4">
+                            <p class="text-sm text-gray-500">No audit trail available for this document</p>
+                        </div>
+                    `;
+                    auditTrailList.appendChild(emptyLi);
+                }
+            }
+            
+            // Helper function to format date
+            function formatDate(dateString) {
+                if (!dateString) return "Unknown date";
+                
+                try {
+                    // Add logging to see what format we're dealing with
+                    console.log("Formatting date:", dateString);
+                    
+                    // Try parsing the date
+                    const date = new Date(dateString);
+                    
+                    // Validate the date is actually valid
+                    if (isNaN(date.getTime())) {
+                        console.log('Invalid date string:', dateString);
+                        
+                        // Try alternative formats
+                        // Format: 2025-05-20T23:19:43.330071
+                        if (typeof dateString === 'string' && dateString.includes('T')) {
+                            const [datePart, timePart] = dateString.split('T');
+                            const [year, month, day] = datePart.split('-');
+                            const [hour, minute, secondWithMillis] = timePart.split(':');
+                            const second = secondWithMillis.split('.')[0];
+                            
+                            const fixedDate = new Date(year, month-1, day, hour, minute, second);
+                            if (!isNaN(fixedDate.getTime())) {
+                                return fixedDate.toLocaleString(undefined, {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                });
+                            }
+                        }
+                        
+                        return "Date format unknown";
+                    }
+                    
+                    // Return a consistent formatted date and time
+                    return date.toLocaleString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                } catch (e) {
+                    console.error('Error formatting date:', e, 'Date string:', dateString);
+                    return "Date format error"; // Return error message on exception
+                }
+            }
+            
+            // Get status text
+            function getStatusText(status) {
+                if (!status) return "Unknown";
+                
+                const statusMap = {
+                    'signed': 'Signed',
+                    'pending_signature': 'Awaiting Signatures',
+                    'partially_signed': 'Partially Signed',
+                    'verified': 'Verified'
+                };
+                
+                return statusMap[status] || status;
+            }
+            
+            // Verify button
+            verifyButton.addEventListener('click', function() {
+                if (!selectedFileObj) {
+                    showError('Please select a file to verify');
+                    return;
+                }
+                
+                verifyDocument();
+            });
+            
+            // Check authentication
+            function checkAuth() {
+                const user = auth.currentUser || { uid: localStorage.getItem('userId') };
+                
+                if (!user || !user.uid) {
+                    // Not logged in, redirect to login page
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                // Set user name in header if available
+                if (user.displayName) {
+                    userName.textContent = user.displayName;
+                } else {
+                    userName.textContent = localStorage.getItem('userName') || 'User';
+                }
+                
+                // Check verification status in Firestore
+                db.collection('users').doc(user.uid).get().then((doc) => {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        const isVerified = userData.verified === true && userData.verification_completed === true;
+                        
+                        if (isVerified) {
+                            localStorage.setItem('isVerified', 'true');
+                        } else {
+                            localStorage.setItem('isVerified', 'false');
+                            
+                            // Redirect to verification if not already on verification page
+                            if (window.location.pathname !== '/verification' && 
+                                window.location.pathname !== '/selfie_verification') {
+                                window.location.href = '/verification';
+                            }
+                        }
+                    } else {
+                        localStorage.setItem('isVerified', 'false');
+                        window.location.href = '/verification';
+                    }
+                }).catch((error) => {
+                    console.error("Error checking verification status:", error);
+                    localStorage.setItem('isVerified', 'false');
+                    showError("Failed to load user data. Please try again.");
+                });
+            }
+            
+            // Logout function
+            async function logout() {
+                try {
+                    await auth.signOut();
+                    
+                    // Clear local storage
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('userToken');
+                    localStorage.removeItem('userEmail');
+                    localStorage.removeItem('userName');
+                    localStorage.removeItem('isVerified');
+                    
+                    // Redirect to login page
+                    window.location.href = '/login';
+                } catch (error) {
+                    showError('Failed to log out: ' + error.message);
+                }
+            }
+            
+            // Logout button
+            logoutButton.addEventListener('click', logout);
+            
+            // Initialize on load
+            auth.onAuthStateChanged(function(user) {
+                if (user) {
+                    checkAuth();
+                } else {
+                    const userId = localStorage.getItem('userId');
+                    if (userId) {
+                        checkAuth();
+                    } else {
+                        window.location.href = '/login';
+                    }
+                }
+            });
+        });
+
+        // Add this in verify.html
+        console.log("Document data:", verificationResult.document);
+    </script>
+</body>
+</html>

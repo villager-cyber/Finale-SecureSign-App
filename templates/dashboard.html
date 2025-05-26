@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureSign - Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation Header -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <div class="text-2xl font-bold text-gray-800 flex items-center">
+                            <span class="text-3xl mr-2">🔒</span> SecureSign
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="ml-4 flex items-center md:ml-6">
+                        <span id="user-name" class="text-gray-500 mr-4">
+                            Loading...
+                        </span>
+                        <button
+                            id="logout-button"
+                            class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="py-10">
+        <header>
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+            </div>
+        </header>
+        <main>
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <!-- Error Alert -->
+                <div id="error-container" class="rounded-md bg-red-50 p-4 mb-4 hidden">
+                    <div id="error-message" class="text-sm text-red-700"></div>
+                </div>
+                
+                <!-- Verification Status -->
+                <div id="verification-banner" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 hidden">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-yellow-700">
+                                Your account is not verified. Please verify your account to use all features.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dashboard Cards -->
+                <div class="mt-8">
+                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                        <!-- Upload Document Card -->
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                                        <i class="fas fa-cloud-upload-alt text-white w-6 h-6 flex items-center justify-center"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dt class="text-sm font-medium text-gray-500 truncate">
+                                            Document Upload
+                                        </dt>
+                                        <dd class="flex flex-col">
+                                            <div class="text-lg font-semibold text-gray-900">
+                                                New
+                                            </div>
+                                            <div class="mt-1 flex space-x-2">
+                                                <a href="/upload-secure" class="text-xs font-medium text-green-700 hover:text-green-900">
+                                                    Enhanced Security
+                                                </a>
+                                            </div>
+                                        </dd>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 px-5 py-3">
+                                <div class="text-sm">
+                                    <a href="/upload-secure" class="font-medium text-blue-700 hover:text-blue-900">
+                                        Upload a document with encryption
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- My Documents Card -->
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                        <i class="fas fa-file-alt text-white w-6 h-6 flex items-center justify-center"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dt class="text-sm font-medium text-gray-500 truncate">
+                                            My Documents
+                                        </dt>
+                                        <dd class="flex items-baseline">
+                                            <div class="text-2xl font-semibold text-gray-900" id="document-count">
+                                                0
+                                            </div>
+                                        </dd>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 px-5 py-3">
+                                <div class="text-sm">
+                                    <a href="/documents" class="font-medium text-blue-700 hover:text-blue-900">
+                                        View all documents
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Verify Document Card -->
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                                        <i class="fas fa-shield-alt text-white w-6 h-6 flex items-center justify-center"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dt class="text-sm font-medium text-gray-500 truncate">
+                                            Verify Document
+                                        </dt>
+                                        <dd class="flex items-baseline">
+                                            <div class="text-2xl font-semibold text-gray-900">
+                                                Secure
+                                            </div>
+                                        </dd>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 px-5 py-3">
+                                <div class="text-sm">
+                                    <a href="/verify" class="font-medium text-blue-700 hover:text-blue-900">
+                                        Verify a signed document
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pending Actions -->
+                <div class="mt-8">
+                    <h2 class="text-lg leading-6 font-medium text-gray-900">Pending Actions</h2>
+                    <div class="mt-4 bg-white shadow overflow-hidden sm:rounded-md">
+                        <ul id="pending-documents" class="divide-y divide-gray-200">
+                            <li id="pending-placeholder">
+                                <div class="px-4 py-4 sm:px-6">
+                                    <div class="flex items-center justify-between">
+                                        <p class="text-sm font-medium text-gray-500 truncate">
+                                            Loading documents...
+                                        </p>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWf71MsT4AEljGQLBwNkbvayZscOw383Y",
+            authDomain: "digitalsignapplication.firebaseapp.com",
+            projectId: "digitalsignapplication",
+            storageBucket: "digitalsignapplication.firebasestorage.app",
+            messagingSenderId: "437036538199",
+            appId: "1:437036538199:web:cbdec67966ed7d23308612"
+        };
+    
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+    
+        document.addEventListener('DOMContentLoaded', function() {
+            const userName = document.getElementById('user-name');
+            const logoutButton = document.getElementById('logout-button');
+            const verificationBanner = document.getElementById('verification-banner');
+            const documentCount = document.getElementById('document-count');
+            const pendingDocumentsList = document.getElementById('pending-documents');
+            const pendingPlaceholder = document.getElementById('pending-placeholder');
+            const errorContainer = document.getElementById('error-container');
+            const errorMessage = document.getElementById('error-message');
+            
+            // Show error message
+            function showError(message) {
+                console.error("Error:", message); // Add debug logging
+                errorMessage.textContent = message;
+                errorContainer.classList.remove('hidden');
+            }
+            
+            // Hide error message
+            function hideError() {
+                errorContainer.classList.add('hidden');
+            }
+            
+            // Modify the checkAuthAndLoadData function in both files
+            function checkAuthAndLoadData() {
+                console.log("Checking authentication and loading data...");
+                
+                // Get user from Firebase Auth
+                const user = auth.currentUser || { uid: localStorage.getItem('userId') };
+                
+                if (!user || !user.uid) {
+                    // Not logged in, redirect to login page
+                    console.log("No authenticated user, redirecting to login");
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                console.log("User authenticated:", user.uid);
+                
+                // Set user name in header if available
+                if (user.displayName) {
+                    userName.textContent = user.displayName;
+                } else {
+                    userName.textContent = localStorage.getItem('userName') || 'User';
+                }
+                
+                // Check verification status in Firestore directly
+                db.collection('users').doc(user.uid).get().then((doc) => {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        console.log("User data retrieved:", userData);
+                        
+                        // Check both verified and verification_completed
+                        const isVerified = userData.verified === true && userData.verification_completed === true;
+                        console.log("User verified:", isVerified);
+                        
+                        if (isVerified) {
+                            // Store verification status in localStorage
+                            localStorage.setItem('isVerified', 'true');
+                            
+                            // User is verified, continue with dashboard/documents
+                            if (window.location.pathname === '/verification' || 
+                                window.location.pathname === '/selfie_verification') {
+                                // If on verification pages but already verified, redirect to dashboard
+                                window.location.href = '/dashboard';
+                                return;
+                            }
+                            
+                            // Continue with loading page content - fetch user details and documents
+                            // THIS IS THE KEY CHANGE: Always proceed with content loading if verified
+                            if (typeof fetchUserDetails === 'function') fetchUserDetails(user.uid);
+                            if (typeof fetchUserDocuments === 'function') fetchUserDocuments(user.uid);
+                            if (typeof fetchDocuments === 'function') fetchDocuments();
+                        } else {
+                            // User is not verified, show banner and/or redirect
+                            localStorage.setItem('isVerified', 'false');
+                            
+                            if (verificationBanner) {
+                                verificationBanner.classList.remove('hidden');
+                            }
+                            
+                            // Only redirect if not already on a verification page
+                            if (window.location.pathname !== '/verification' && 
+                                window.location.pathname !== '/selfie_verification') {
+                                window.location.href = '/verification';
+                                return;
+                            }
+                        }
+                    } else {
+                        console.log("User document not found");
+                        // User document not found, redirect to verification
+                        localStorage.setItem('isVerified', 'false');
+                        window.location.href = '/verification';
+                    }
+                }).catch((error) => {
+                    console.error("Error checking verification status:", error);
+                    // On error, assume not verified (safer approach)
+                    localStorage.setItem('isVerified', 'false');
+                    showError("Failed to load user data. Please try again.");
+                });
+            }
+            
+            // Fetch user details from Firestore
+            async function fetchUserDetails(userId) {
+                console.log("Fetching user details for:", userId);
+                try {
+                    // Try to get user data from backend API
+                    const response = await fetch(`/api/user/${userId}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        const userData = data.userData;
+                        console.log("User data retrieved from API:", userData);
+                        
+                        // Show verification banner if not verified
+                        if (!userData.verified && verificationBanner) {
+                            verificationBanner.classList.remove('hidden');
+                        }
+                    } else {
+                        console.log("API returned error, falling back to Firestore");
+                        // Fallback to direct Firestore query
+                        try {
+                            const userDoc = await db.collection('users').doc(userId).get();
+                            
+                            if (userDoc.exists) {
+                                const userData = userDoc.data();
+                                console.log("User data retrieved from Firestore:", userData);
+                                
+                                // Show verification banner if not verified
+                                if (!userData.verified && verificationBanner) {
+                                    verificationBanner.classList.remove('hidden');
+                                }
+                            } else {
+                                console.log("User document not found in Firestore");
+                            }
+                        } catch (error) {
+                            console.error('Error fetching user details from Firestore:', error);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching user details from API:', error);
+                }
+            }
+            
+            // Fetch user documents
+            async function fetchUserDocuments(userId) {
+                console.log("Fetching documents for user:", userId);
+                try {
+                    // Clear the pending documents list first (except placeholder)
+                    const existingItems = pendingDocumentsList.querySelectorAll('li:not(#pending-placeholder)');
+                    existingItems.forEach(item => item.remove());
+                    
+                    // Try to get user documents from backend API
+                    console.log("Fetching documents from API");
+                    const response = await fetch(`/api/documents/user/${userId}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        const documents = data.documents;
+                        console.log("Documents retrieved from API:", documents);
+                        
+                        // Update document count
+                        documentCount.textContent = documents.length || 0;
+                        
+                        // Show pending documents
+                        showPendingDocuments(documents);
+                    } else {
+                        console.log("API returned error, falling back to Firestore");
+                        // Fallback to direct Firestore query
+                        try {
+                            console.log("Querying Firestore for documents");
+                            const documentsSnapshot = await db.collection('documents')
+                                .where('uploaded_by', '==', userId)
+                                .get();
+                            
+                            const documents = [];
+                            documentsSnapshot.forEach(doc => {
+                                console.log("Document found:", doc.id, doc.data());
+                                documents.push({
+                                    id: doc.id,
+                                    ...doc.data()
+                                });
+                            });
+                            
+                            // Update document count
+                            documentCount.textContent = documents.length || 0;
+                            
+                            // Show pending documents
+                            showPendingDocuments(documents);
+                        } catch (error) {
+                            console.error('Error fetching documents from Firestore:', error);
+                            pendingPlaceholder.innerHTML = `
+                                <div class="px-4 py-4 sm:px-6">
+                                    <div class="flex items-center justify-between">
+                                        <p class="text-sm font-medium text-gray-500 truncate">
+                                            Error loading documents. Please refresh the page.
+                                        </p>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching documents from API:', error);
+                    pendingPlaceholder.innerHTML = `
+                        <div class="px-4 py-4 sm:px-6">
+                            <div class="flex items-center justify-between">
+                                <p class="text-sm font-medium text-gray-500 truncate">
+                                    Error loading documents. Please refresh the page.
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Display pending documents
+            function showPendingDocuments(documents) {
+                console.log("Processing documents to display:", documents);
+                
+                // Filter for pending documents - check for multiple possible status values
+                const pendingDocs = documents.filter(doc => {
+                    const status = doc.status ? doc.status.toLowerCase() : '';
+                    return status === 'pending_signature' || 
+                           status === 'pending' || 
+                           status === 'partially_signed';
+                });
+                
+                console.log("Pending documents:", pendingDocs);
+                
+                if (pendingDocs.length === 0) {
+                    console.log("No pending documents found");
+                    // No pending documents
+                    pendingPlaceholder.innerHTML = `
+                        <div class="px-4 py-4 sm:px-6">
+                            <div class="flex items-center justify-between">
+                                <p class="text-sm font-medium text-gray-500 truncate">
+                                    No pending documents to sign
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    console.log("Displaying pending documents:", pendingDocs.length);
+                    // Clear placeholder
+                    pendingPlaceholder.innerHTML = '';
+                    
+                    // Add pending documents
+                    pendingDocs.forEach(doc => {
+                        console.log("Adding document to list:", doc.id || doc.documentId);
+                        const li = document.createElement('li');
+                        
+                        const dateCreated = doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Unknown date';
+                        const docId = doc.documentId || doc.id;
+                        
+                        li.innerHTML = `
+                            <div class="px-4 py-4 sm:px-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900 truncate">
+                                            ${doc.fileName || doc.original_filename || 'Untitled Document'}
+                                        </p>
+                                        <p class="text-xs text-gray-500">
+                                            Created: ${dateCreated}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <a href="/sign/${docId}" class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700">
+                                            Sign Document
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        pendingDocumentsList.appendChild(li);
+                    });
+                }
+            }
+            
+            // Logout function
+            async function logout() {
+                try {
+                    await auth.signOut();
+                    
+                    // Clear local storage
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('userToken');
+                    localStorage.removeItem('userEmail');
+                    localStorage.removeItem('userName');
+                    localStorage.removeItem('isVerified');
+                    
+                    // Redirect to login page
+                    window.location.href = '/login';
+                } catch (error) {
+                    showError('Failed to log out: ' + error.message);
+                }
+            }
+            
+            // Logout button event listener
+            logoutButton.addEventListener('click', logout);
+            
+            // Check authentication and load data
+            auth.onAuthStateChanged(function(user) {
+                if (user) {
+                    console.log("Auth state changed: User is signed in");
+                    checkAuthAndLoadData();
+                } else {
+                    console.log("Auth state changed: User is signed out");
+                    
+                    // Try to use userId from localStorage as fallback
+                    const userId = localStorage.getItem('userId');
+                    if (userId) {
+                        console.log("Using userId from localStorage:", userId);
+                        checkAuthAndLoadData();
+                    } else {
+                        // User is signed out, redirect to login page
+                        console.log("No user ID found, redirecting to login");
+                        window.location.href = '/login';
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

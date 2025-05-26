@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- [Previous head content remains the same] -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureSign - Sign Document</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></link>
+    <!-- PDF.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Signature Pad library -->
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script&display=swap" rel="stylesheet">
+    
+    <style>
+        .signature-placeholder {
+            position: absolute;
+            background-color: rgba(52, 152, 219, 0.2);
+            border: 2px solid #3498db;
+            border-radius: 4px;
+            padding: 10px;
+            cursor: pointer;
+            min-width: 150px;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            z-index: 10;
+        }
+        
+        .signature-placeholder.signed {
+            background-color: transparent;
+            border: none;
+            padding: 0;
+            cursor: default;
+        }
+        
+        .signature-placeholder.locked {
+            cursor: not-allowed;
+            opacity: 0.95;
+        }
+        
+        .signature-placeholder.active {
+            background-color: rgba(52, 152, 219, 0.4);
+            border-color: #2980b9;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+        }
+        
+        .signature-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .signature-text {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Dancing Script', cursive;
+            font-size: 24px;
+            color: #000;
+            background-color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation Header -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/dashboard" class="text-2xl font-bold text-gray-800 flex items-center">
+                            <span class="text-3xl mr-2">🔒</span> SecureSign
+                        </a>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/dashboard" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Dashboard
+                        </a>
+                        <a href="/documents" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            My Documents
+                        </a>
+                        <a href="/verify" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Verify Document
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span id="user-email" class="text-sm text-gray-700 mr-4"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loading Overlay for Authentication Check -->
+    <div id="auth-loading" class="fixed inset-0 bg-gray-100 bg-opacity-90 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+            <p class="text-gray-700">Checking authentication status...</p>
+        </div>
+    </div>
+
+    <div class="container max-w-6xl mx-auto px-4 py-8">
+        <div class="card bg-white shadow-md rounded-lg overflow-hidden">
+            <h1 class="text-2xl font-bold text-gray-900 p-6 border-b border-gray-200">Sign Document</h1>
+            
+            <div id="error-message" class="bg-red-50 border-l-4 border-red-500 p-4 m-6 hidden">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p id="error-text" class="text-sm text-red-700"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="success-message" class="bg-green-50 border-l-4 border-green-500 p-4 m-6 hidden">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p id="success-text" class="text-sm text-green-700"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Password Prompt Section -->
+            <div id="password-prompt" class="p-6 hidden">
+                <p class="text-gray-700 mb-4">This document is protected. Please enter the password to view and sign it.</p>
+                
+                <div class="mb-4">
+                    <label for="access-password" class="block text-sm font-medium text-gray-700 mb-1">Document Password</label>
+                    <input 
+                        type="password" 
+                        id="access-password" 
+                        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                        placeholder="Enter document password"
+                    >
+                </div>
+                
+                <button 
+                    id="decrypt-button" 
+                    class="w-full flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    Access Document
+                </button>
+            </div>
+            
+            <!-- Loading Section -->
+            <div id="loading" class="p-6 text-center hidden">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                <p class="text-gray-700">Processing document...</p>
+            </div>
+            
+            <!-- Signing Area Section -->
+            <div id="signing-area" class="hidden">
+                <!-- [Rest of the signing area remains the same] -->
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-medium text-gray-900 mb-2">Document Ready for Signing</h2>
+                    <p class="text-gray-600">Click on a signature field to sign</p>
+                </div>
+                
+                <div class="flex justify-between items-center bg-gray-100 px-6 py-2">
+                    <div class="flex items-center">
+                        <button
+                            id="prev-page"
+                            class="p-1 rounded text-gray-700 hover:bg-gray-200 mr-2"
+                        >
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <span class="text-sm">
+                            Page <span id="page-num">1</span> of <span id="page-count">1</span>
+                        </span>
+                        <button
+                            id="next-page"
+                            class="p-1 rounded text-gray-700 hover:bg-gray-200 ml-2"
+                        >
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Document Container -->
+                <div class="document-container relative h-[600px] overflow-auto border border-gray-200 bg-gray-100">
+                    <div id="pdf-container" class="relative mx-auto bg-white shadow-md">
+                        <!-- Canvas for each page will be inserted here -->
+                    </div>
+                </div>
+                
+                <div class="p-6 bg-gray-50 flex justify-between">
+                    <button
+                        id="cancel-button"
+                        class="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        id="complete-signing"
+                        disabled
+                        class="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                    >
+                        Complete Signing
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Signature Modal -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-gray-500 bg-opacity-75 z-40 hidden"></div>
+    <div id="signature-modal" class="fixed inset-x-0 top-1/2 -translate-y-1/2 max-w-lg mx-auto bg-white rounded-lg shadow-xl z-50 p-6 hidden">
+        <!-- [Signature Modal content remains the same] -->
+        <h3 id="modal-title" class="text-lg font-medium text-gray-900 mb-4">Sign Document</h3>
+        
+        <div id="input-tabs" class="flex space-x-2 mb-4">
+            <button 
+                data-tab="draw" 
+                class="input-tab active px-3 py-1 rounded-md text-sm font-medium bg-blue-100 text-blue-800"
+            >
+                Draw
+            </button>
+            <button 
+                data-tab="type" 
+                class="input-tab px-3 py-1 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+                Type
+            </button>
+        </div>
+        
+        <div id="tab-draw" class="tab-content active">
+            <p class="text-sm text-gray-600 mb-2">Draw your signature below:</p>
+            <div class="border border-gray-300 rounded-md bg-white mb-4">
+                <canvas id="signature-canvas" class="w-full h-48"></canvas>
+            </div>
+            <button id="clear-signature" class="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-md">Clear</button>
+        </div>
+        
+        <div id="tab-type" class="tab-content hidden">
+            <p class="text-sm text-gray-600 mb-2">Type your signature below:</p>
+            <input 
+                type="text" 
+                id="signature-text" 
+                class="w-full p-3 border border-gray-300 rounded-md text-center text-2xl font-signature mb-4"
+                style="font-family: 'Dancing Script', cursive;"
+                placeholder="Type here..."
+            >
+        </div>
+        
+        <div class="flex justify-end space-x-3 mt-4">
+            <button 
+                id="cancel-modal" 
+                class="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+                Cancel
+            </button>
+            <button 
+                id="save-signature" 
+                class="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+                Save
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWf71MsT4AEljGQLBwNkbvayZscOw383Y",
+            authDomain: "digitalsignapplication.firebaseapp.com",
+            projectId: "digitalsignapplication",
+            storageBucket: "digitalsignapplication.firebasestorage.app",
+            messagingSenderId: "437036538199",
+            appId: "1:437036538199:web:cbdec67966ed7d23308612"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        // Store document info received from the server
+        let documentInfo = null;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get document ID from URL
+            const documentId = window.location.pathname.split('/').pop();
+            
+            // Save document ID to localStorage for redirect after login/signup
+            localStorage.setItem('pendingSignDocumentId', documentId);
+            
+            // DOM elements
+            const authLoading = document.getElementById('auth-loading');
+            const accessPassword = document.getElementById('access-password');
+            const decryptButton = document.getElementById('decrypt-button');
+            const passwordPrompt = document.getElementById('password-prompt');
+            const signingArea = document.getElementById('signing-area');
+            const loading = document.getElementById('loading');
+            const errorMessage = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+            const successMessage = document.getElementById('success-message');
+            const successText = document.getElementById('success-text');
+            const completeSigningButton = document.getElementById('complete-signing');
+            const cancelButton = document.getElementById('cancel-button');
+            const pdfContainer = document.getElementById('pdf-container');
+            const pageNum = document.getElementById('page-num');
+            const pageCount = document.getElementById('page-count');
+            const prevPageButton = document.getElementById('prev-page');
+            const nextPageButton = document.getElementById('next-page');
+            const userEmailDisplay = document.getElementById('user-email');
+            
+            // Signature modal elements
+            const signatureModal = document.getElementById('signature-modal');
+            const modalBackdrop = document.getElementById('modal-backdrop');
+            const modalTitle = document.getElementById('modal-title');
+            const signatureCanvas = document.getElementById('signature-canvas');
+            const signatureText = document.getElementById('signature-text');
+            const clearSignatureButton = document.getElementById('clear-signature');
+            const saveSignatureButton = document.getElementById('save-signature');
+            const cancelModalButton = document.getElementById('cancel-modal');
+            const inputTabs = document.getElementById('input-tabs');
+            const tabDraw = document.getElementById('tab-draw');
+            const tabType = document.getElementById('tab-type');
+            
+            // PDF viewing state
+            let pdfDoc = null;
+            let currentPage = 1;
+            let totalPages = 1;
+            let pageRendering = false;
+            let pageNumPending = null;
+            let scale = 1.5;
+            
+            // Signature state
+            let placeholders = [];
+            let signatures = {};
+            let activeFieldId = null;
+            let signaturePad = null;
+
+            // Show error message
+            function showError(message) {
+                errorText.textContent = message;
+                errorMessage.classList.remove('hidden');
+                setTimeout(() => {
+                    errorMessage.classList.add('hidden');
+                }, 5000);
+            }
+            
+            // Show success message
+            function showSuccess(message) {
+                successText.textContent = message;
+                successMessage.classList.remove('hidden');
+            }
+            
+            // Updated authentication check function
+            function checkAuthenticationStatus() {
+                return new Promise((resolve, reject) => {
+                    auth.onAuthStateChanged(function(user) {
+                        if (user) {
+                            // User is signed in
+                            console.log("User is signed in:", user.email);
+                            
+                            // Update localStorage with the authenticated email
+                            localStorage.setItem('userEmail', user.email.toLowerCase());
+                            localStorage.setItem('userId', user.uid);
+                            
+                            // Display email in header
+                            if (userEmailDisplay) {
+                                userEmailDisplay.textContent = user.email;
+                            }
+                            
+                            // Check if user has completed verification
+                            db.collection('users').doc(user.uid).get().then((doc) => {
+                                if (doc.exists) {
+                                    const userData = doc.data();
+                                    const isVerified = userData.verified === true;
+                                    
+                                    if (!isVerified && userData.verification_required !== false) {
+                                        // User needs verification, redirect to verification page
+                                        window.location.href = `/verification?redirect=${encodeURIComponent('/sign/' + documentId)}`;
+                                        reject(new Error("Verification required"));
+                                    } else {
+                                        // User is authenticated and verified (or verification not required)
+                                        resolve(user);
+                                    }
+                                } else {
+                                    // User document doesn't exist, but user is authenticated
+                                    resolve(user);
+                                }
+                            }).catch((error) => {
+                                console.error("Error checking verification status:", error);
+                                // On error, assume user is authenticated
+                                resolve(user);
+                            });
+                        } else {
+                            // No user is signed in, redirect to login page
+                            reject(new Error("Not authenticated"));
+                        }
+                    });
+                });
+            }
+            
+            // Initialize the signing process
+            async function initSigningProcess() {
+                try {
+                    // Check if user is authenticated
+                    await checkAuthenticationStatus();
+                    
+                    // User is authenticated, show password prompt
+                    authLoading.classList.add('hidden');
+                    passwordPrompt.classList.remove('hidden');
+                    
+                } catch (error) {
+                    console.warn("Authentication check failed:", error.message);
+                    
+                    // Redirect to login page with return URL
+                    const returnUrl = encodeURIComponent(window.location.pathname);
+                    window.location.href = `/login?redirect=${returnUrl}`;
+                }
+            }
+            
+            function initSignaturePad() {
+                // Get the canvas element correctly
+                const canvas = document.getElementById('signature-canvas');
+                if (!canvas) {
+                    console.error("Signature canvas element not found!");
+                    return;
+                }
+                
+                // Properly size the canvas first
+                resizeCanvas();
+                
+                // Now create the signature pad
+                signaturePad = new SignaturePad(canvas, {
+                    backgroundColor: 'rgba(255, 255, 255, 0)', // Transparent background
+                    penColor: 'rgb(0, 0, 0)',
+                    minWidth: 0.5,
+                    maxWidth: 2.5,
+                    velocityFilterWeight: 0.7
+                });
+                
+                console.log("Signature pad initialized:", signaturePad);
+            }
+            
+            // Correctly resize the canvas
+            function resizeCanvas() {
+                const canvas = document.getElementById('signature-canvas');
+                if (!canvas) {
+                    console.error("Canvas element not found!");
+                    return;
+                }
+                
+                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                canvas.width = canvas.offsetWidth * ratio;
+                canvas.height = canvas.offsetHeight * ratio;
+                
+                // Scale context - IMPORTANT for proper drawing
+                const ctx = canvas.getContext("2d");
+                ctx.scale(ratio, ratio);
+                
+                // Clear with transparent background
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                console.log("Canvas resized to:", canvas.width, canvas.height);
+                
+                // If signaturePad exists, clear it
+                if (signaturePad) {
+                    signaturePad.clear();
+                }
+            }
+            
+            // Tab switching
+            inputTabs.addEventListener('click', function(e) {
+                if (e.target.classList.contains('input-tab')) {
+                    // Remove active class from all tabs
+                    document.querySelectorAll('.input-tab').forEach(tab => {
+                        tab.classList.remove('active', 'bg-blue-100', 'text-blue-800');
+                        tab.classList.add('text-gray-700', 'hover:bg-gray-100');
+                    });
+                    
+                    // Hide all tab content
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    
+                    // Activate selected tab
+                    e.target.classList.add('active', 'bg-blue-100', 'text-blue-800');
+                    e.target.classList.remove('text-gray-700', 'hover:bg-gray-100');
+                    
+                    // Show selected tab content
+                    const tabName = e.target.getAttribute('data-tab');
+                    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+                }
+            });
+            
+            // Clear signature button
+            document.getElementById('clear-signature').addEventListener('click', function() {
+                if (signaturePad) {
+                    signaturePad.clear();
+                    console.log("Signature pad cleared");
+                }
+            });
+
+            window.addEventListener('resize', function() {
+                resizeCanvas();
+                console.log("Canvas resized due to window resize");
+            });
+            
+            // Get user email from multiple sources
+            function getUserEmail() {
+                // Primary source: Firebase Auth user
+                const firebaseUser = auth.currentUser;
+                if (firebaseUser && firebaseUser.email) {
+                    return firebaseUser.email.toLowerCase();
+                }
+                
+                // Secondary source: Server-validated email from document info
+                if (documentInfo && documentInfo.currentUserEmail) {
+                    return documentInfo.currentUserEmail.toLowerCase();
+                }
+                
+                // Fallback: localStorage
+                return (localStorage.getItem('userEmail') || '').toLowerCase();
+            }
+            
+            // Decrypt button
+            decryptButton.addEventListener('click', function() {
+                const password = accessPassword.value;
+                if (!password) {
+                    showError('Password is required');
+                    return;
+                }
+                
+                passwordPrompt.classList.add('hidden');
+                loading.classList.remove('hidden');
+                
+                // First get document info with the user's email
+                getDocumentInfo(password);
+            });
+            
+            // Get document info
+            async function getDocumentInfo(password) {
+                try {
+                    console.log("Getting document info for ID:", documentId);
+                    
+                    const formData = new FormData();
+                    formData.append('password', password);
+                    formData.append('userEmail', getUserEmail());
+                    
+                    const response = await fetch(`/sign/${documentId}/info`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        const data = await response.json();
+                        console.error("Error response from API:", data);
+                        throw new Error(data.error || 'Failed to get document info');
+                    }
+                    
+                    const data = await response.json();
+                    console.log("Document info received:", data);
+                    
+                    // Store document info for later reference
+                    documentInfo = data;
+                    
+                    // Ensure placeholders are properly parsed and normalized
+                    placeholders = Array.isArray(data.placeholders) ? data.placeholders : [];
+                    signatures = data.signatures || {};
+                    
+                    console.log("Parsed placeholders:", placeholders);
+                    console.log("Parsed signatures:", signatures);
+                    
+                    // Now decrypt the document
+                    decryptDocument(password);
+                    
+                } catch (error) {
+                    console.error("Error getting document info:", error);
+                    loading.classList.add('hidden');
+                    passwordPrompt.classList.remove('hidden');
+                    showError(error.message);
+                }
+            }
+
+            document.head.insertAdjacentHTML('beforeend', `
+                <style>
+                .signature-placeholder {
+                    position: absolute;
+                    background-color: rgba(52, 152, 219, 0.2);
+                    border: 2px solid #3498db;
+                    border-radius: 4px;
+                    padding: 10px;
+                    cursor: pointer;
+                    min-width: 150px;
+                    min-height: 50px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    user-select: none;
+                    z-index: 10;
+                }
+
+                .signature-placeholder.signed {
+                    background-color: transparent;
+                    border: none;
+                    padding: 0;
+                    cursor: default;
+                }
+
+                .signature-placeholder.locked {
+                    cursor: not-allowed;
+                    opacity: 0.95;
+                }
+
+                .signature-placeholder.active {
+                    background-color: rgba(52, 152, 219, 0.4);
+                    border-color: #2980b9;
+                    box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+                }
+                </style>
+                `);
+            
+            // Decrypt document
+            async function decryptDocument(password) {
+                try {
+                    const formData = new FormData();
+                    formData.append('password', password);
+                    
+                    const response = await fetch(`/sign/${documentId}/decrypt`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        const data = await response.json();
+                        throw new Error(data.error || 'Failed to decrypt document');
+                    }
+                    
+                    // Convert response to blob
+                    const pdfBlob = await response.blob();
+                    
+                    // Load the PDF
+                    loadPdf(pdfBlob);
+                    
+                } catch (error) {
+                    loading.classList.add('hidden');
+                    passwordPrompt.classList.remove('hidden');
+                    showError(error.message);
+                }
+            }
+            
+            // Load PDF
+            function loadPdf(pdfBlob) {
+                // Create a blob URL for the PDF
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                
+                // Load the PDF document
+                const loadingTask = pdfjsLib.getDocument(pdfUrl);
+                loadingTask.promise.then(function(pdf) {
+                    pdfDoc = pdf;
+                    totalPages = pdf.numPages;
+                    pageCount.textContent = totalPages;
+                    
+                    // Initial page rendering
+                    renderPage(currentPage);
+                    
+                    // Show signing area
+                    loading.classList.add('hidden');
+                    signingArea.classList.remove('hidden');
+                    
+                }).catch(function(error) {
+                    console.error("Error loading PDF:", error);
+                    loading.classList.add('hidden');
+                    passwordPrompt.classList.remove('hidden');
+                    showError('Failed to load PDF: ' + error.message);
+                });
+            }
+            
+            // Render a page
+            function renderPage(pageNumber) {
+                pageRendering = true;
+                
+                // Update page display
+                pageNum.textContent = pageNumber;
+                
+                // Get the page
+                pdfDoc.getPage(pageNumber).then(function(page) {
+                    // Set scale for responsive display
+                    const viewport = page.getViewport({ scale });
+                    
+                    // Create canvas
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    // Clear previous content
+                    pdfContainer.innerHTML = '';
+                    pdfContainer.appendChild(canvas);
+                    
+                    // Set width of PDF container
+                    pdfContainer.style.width = `${viewport.width}px`;
+                    
+                    // Render PDF page
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+                    
+                    const renderTask = page.render(renderContext);
+                    
+                    renderTask.promise.then(function() {
+                        pageRendering = false;
+                        
+                        // Render signature placeholders
+                        renderSignaturePlaceholders(pageNumber);
+                        
+                        if (pageNumPending !== null) {
+                            // New page rendering is pending
+                            renderPage(pageNumPending);
+                            pageNumPending = null;
+                        }
+                    });
+                });
+            }
+            
+            // Improved renderSignaturePlaceholders function with better email validation and restrictions
+            function renderSignaturePlaceholders(pageNumber) {
+                console.log("Rendering placeholders for page:", pageNumber);
+                
+                // Get current user email using our improved function
+                const currentUserEmail = getUserEmail();
+                console.log("Current user email:", currentUserEmail);
+                
+                // Clear existing placeholders first
+                const existingPlaceholders = document.querySelectorAll('.signature-placeholder');
+                existingPlaceholders.forEach(el => el.remove());
+                
+                // Filter placeholders for current page
+                const pagePlaceholders = placeholders.filter(p => parseInt(p.page) === parseInt(pageNumber));
+                
+                pagePlaceholders.forEach(placeholder => {
+                    const placeholderId = placeholder.id.toString();
+                    const recipientEmail = (placeholder.recipientEmail || '').toLowerCase(); // Force lowercase
+                    
+                    // If already signed, show the signature regardless of who signed it
+                    if (signatures[placeholderId]) {
+                        const element = document.createElement('div');
+                        element.className = 'signature-placeholder signed';
+                        element.setAttribute('data-placeholder-id', placeholderId);
+                        
+                        // Position element
+                        const x = parseFloat(placeholder.x || 0);
+                        const y = parseFloat(placeholder.y || 0);
+                        const width = parseFloat(placeholder.width || 150);
+                        const height = parseFloat(placeholder.height || 50);
+                        
+                        element.style.left = `${x}px`;
+                        element.style.top = `${y}px`;
+                        element.style.width = `${width}px`;
+                        element.style.height = `${height}px`;
+                        
+                        // Add signature image
+                        const img = document.createElement('img');
+                        img.src = `data:image/png;base64,${signatures[placeholderId]}`;
+                        img.className = 'signature-image';
+                        element.appendChild(img);
+                        
+                        // Add to the PDF container
+                        pdfContainer.appendChild(element);
+                    }
+                    // Not signed yet - determine if this user can sign it
+                    else {
+                        const element = document.createElement('div');
+                        
+                        // IMPORTANT CHANGE: TREAT EMPTY RECIPIENT EMAIL AS RESTRICTED
+                        // Only allow signing if placeholder is specifically assigned to current user
+                        if (recipientEmail && recipientEmail === currentUserEmail) {
+                            // This placeholder is for the current user
+                            element.className = 'signature-placeholder active';
+                            
+                            // Style for current user
+                            element.style.backgroundColor = 'rgba(25, 135, 84, 0.1)';
+                            element.style.borderColor = '#198754';
+                            element.style.cursor = 'pointer';
+                            
+                            // Message for assigned user
+                            element.innerHTML = `
+                                <div class="text-center text-sm font-semibold">Your Signature Required</div>
+                                <div class="text-xs text-gray-600">${recipientEmail}</div>
+                            `;
+                            
+                            // Add click event
+                            element.addEventListener('click', function() {
+                                openSignatureModal(placeholder.id);
+                            });
+                        } else {
+                            // This placeholder is either assigned to someone else or has no assignment
+                            element.className = 'signature-placeholder locked';
+                            
+                            // Style it differently to show it's for someone else
+                            element.style.backgroundColor = 'rgba(220, 53, 69, 0.1)';
+                            element.style.borderColor = '#dc3545';
+                            element.style.borderStyle = 'dashed';
+                            element.style.cursor = 'not-allowed';
+                            
+                            // Show who it's for or that it's reserved
+                            if (recipientEmail) {
+                                element.innerHTML = `
+                                    <div class="text-center text-sm font-semibold">Reserved Signature</div>
+                                    <div class="text-xs text-gray-600">For: ${recipientEmail}</div>
+                                `;
+                            } else {
+                                element.innerHTML = `
+                                    <div class="text-center text-sm font-semibold">Reserved Signature</div>
+                                    <div class="text-xs text-gray-600">Assigned to document owner</div>
+                                `;
+                            }
+                        }
+                        
+                        element.setAttribute('data-placeholder-id', placeholderId);
+                        
+                        // Position element
+                        const x = parseFloat(placeholder.x || 0);
+                        const y = parseFloat(placeholder.y || 0);
+                        const width = parseFloat(placeholder.width || 150);
+                        const height = parseFloat(placeholder.height || 50);
+                        
+                        element.style.left = `${x}px`;
+                        element.style.top = `${y}px`;
+                        element.style.width = `${width}px`;
+                        element.style.height = `${height}px`;
+                        
+                        // Add to the PDF container
+                        pdfContainer.appendChild(element);
+                    }
+                });
+                
+                // Check if all fields assigned to current user are signed
+                checkAllSigned();
+            }
+            
+            // Replace the original functions with our improved versions
+            window.getDocumentInfo = getDocumentInfo;
+            window.renderSignaturePlaceholders = renderSignaturePlaceholders;
+            
+            // Open signature modal
+            function openSignatureModal(placeholderId) {
+                activeFieldId = placeholderId;
+                console.log("Opening signature modal for placeholder:", placeholderId);
+                
+                // Reset signature pad and text input
+                if (signaturePad) {
+                    signaturePad.clear();
+                }
+                
+                document.getElementById('signature-text').value = '';
+                
+                // Show the modal and backdrop
+                document.getElementById('modal-backdrop').classList.remove('hidden');
+                document.getElementById('signature-modal').classList.remove('hidden');
+                
+                // Make sure the signature pad is initialized
+                // Sometimes it needs to be re-initialized when the modal opens
+                setTimeout(function() {
+                    initSignaturePad();
+                }, 100);
+            }
+            
+            // Initialize when the page loads
+            initSignaturePad();
+            
+            // Save signature function 
+            function saveSignature() {
+                if (!activeFieldId) {
+                    console.error("No active field ID when saving signature");
+                    return;
+                }
+                
+                let signatureData;
+                const activeTab = document.querySelector('.input-tab.active').getAttribute('data-tab');
+                
+                if (activeTab === 'draw') {
+                    console.log("Saving drawn signature");
+                    
+                    // Check if the signature pad is initialized
+                    if (!signaturePad) {
+                        console.error("Signature pad not initialized!");
+                        showError('Error: Signature pad not initialized');
+                        return;
+                    }
+                    
+                    // Check if it's empty
+                    if (signaturePad.isEmpty()) {
+                        console.error("Signature is empty");
+                        showError('Please draw your signature');
+                        return;
+                    }
+                    
+                    console.log("Signature pad has content, converting to data URL");
+                    // Get signature as PNG with transparency
+                    signatureData = signaturePad.toDataURL('image/png').split(',')[1];
+                } else {
+                    console.log("Saving typed signature");
+                    // Get typed signature
+                    const text = document.getElementById('signature-text').value.trim();
+                    if (!text) {
+                        showError('Please type your signature');
+                        return;
+                    }
+                    
+                    // Create image from text
+                    signatureData = createSignatureFromText(text);
+                }
+                
+                console.log("Signature data obtained, length:", signatureData.length);
+                
+                // Store signature
+                signatures[activeFieldId] = signatureData;
+                
+                // Update placeholder
+                const placeholder = document.querySelector(`[data-placeholder-id="${activeFieldId}"]`);
+                if (placeholder) {
+                    placeholder.classList.add('signed', 'locked');
+                    placeholder.innerHTML = '';
+                    
+                    // Add signature image
+                    const img = document.createElement('img');
+                    img.src = `data:image/png;base64,${signatureData}`;
+                    img.className = 'signature-image';
+                    placeholder.appendChild(img);
+                    
+                    // Remove click event by replacing element
+                    const newPlaceholder = placeholder.cloneNode(true);
+                    placeholder.parentNode.replaceChild(newPlaceholder, placeholder);
+                    
+                    console.log("Placeholder updated with signature");
+                } else {
+                    console.error("Could not find placeholder element for ID:", activeFieldId);
+                }
+                
+                // Check if all fields are signed
+                checkAllSigned();
+                
+                // Close modal
+                document.getElementById('modal-backdrop').classList.add('hidden');
+                document.getElementById('signature-modal').classList.add('hidden');
+                activeFieldId = null;
+            }
+
+            // Updated function to create text signature with transparency
+            function createSignatureFromText(text) {
+                // Create a temporary canvas
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Set canvas size
+                canvas.width = 400;
+                canvas.height = 100;
+                
+                // Make background transparent
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Set text style
+                ctx.font = '46px "Dancing Script", cursive';
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // Draw text
+                ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+                
+                // Convert to base64 with transparency
+                return canvas.toDataURL('image/png', 1.0).split(',')[1];
+            }
+            
+            // Improved checkAllSigned function that only considers explicit email assignments
+            function checkAllSigned() {
+                console.log("Checking if all placeholders are signed");
+                
+                // Get current user email using our improved function
+                const currentUserEmail = getUserEmail();
+                
+                // Filter placeholders that are specifically assigned to current user
+                // IMPORTANT CHANGE: Only include placeholders with an explicit email match
+                const userPlaceholders = placeholders.filter(p => {
+                    const recipientEmail = (p.recipientEmail || '').toLowerCase();
+                    return recipientEmail === currentUserEmail;
+                });
+                
+                console.log("Placeholders for current user:", userPlaceholders.length);
+                
+                // Check if all user's placeholders are signed
+                const allSigned = userPlaceholders.every(p => {
+                    const placeholderId = p.id.toString();
+                    const isSigned = signatures[placeholderId] !== undefined;
+                    console.log(`Placeholder ${placeholderId}: Signed=${isSigned}`);
+                    return isSigned;
+                });
+                
+                console.log("All user placeholders signed:", allSigned);
+                
+                // Only enable complete button if user has at least one placeholder to sign
+                // and all their assigned placeholders are signed
+                if (userPlaceholders.length === 0) {
+                    completeSigningButton.disabled = true;
+                    showError("You don't have any signature fields assigned to your email address in this document.");
+                } else {
+                    completeSigningButton.disabled = !allSigned;
+                    
+                    if (allSigned) {
+                        console.log("Enabling 'Complete Signing' button");
+                        completeSigningButton.classList.remove('disabled:bg-blue-300', 'disabled:cursor-not-allowed');
+                        completeSigningButton.classList.add('hover:bg-blue-700');
+                    } else {
+                        console.log("'Complete Signing' button remains disabled");
+                    }
+                }
+            }
+            
+            async function submitSignatures() {
+                try {
+                    console.log("Submitting signatures...");
+                    // Show loading
+                    signingArea.classList.add('hidden');
+                    loading.classList.remove('hidden');
+                    
+                    const password = accessPassword.value;
+                    const currentUserEmail = getUserEmail();
+                    console.log("Using password (length):", password ? password.length : 0);
+                    console.log("Current user email:", currentUserEmail);
+                    
+                    if (!currentUserEmail) {
+                        throw new Error("Your email address is not available. Please sign in again.");
+                    }
+                    
+                    // Filter signatures to only include those EXPLICITLY assigned to current user
+                    const filteredSignatures = {};
+                    let signatureCount = 0;
+                    
+                    for (const placeholder of placeholders) {
+                        const placeholderId = placeholder.id.toString();
+                        const recipientEmail = (placeholder.recipientEmail || '').toLowerCase();
+                        
+                        // IMPORTANT CHANGE: Only include signatures for placeholders explicitly assigned to this user
+                        if (signatures[placeholderId] && recipientEmail === currentUserEmail) {
+                            filteredSignatures[placeholderId] = signatures[placeholderId];
+                            signatureCount++;
+                        }
+                    }
+                    
+                    if (signatureCount === 0) {
+                        throw new Error("No signatures to submit for your email address");
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('password', password);
+                    formData.append('signatures', JSON.stringify(filteredSignatures));
+                    formData.append('signerEmail', currentUserEmail); // Add signer email for server-side validation
+                    
+                    console.log("Sending request to:", `/sign/${documentId}/submit`);
+                    console.log("With signatures:", Object.keys(filteredSignatures).length);
+                    console.log("Signature keys:", Object.keys(filteredSignatures));
+                    
+                    const response = await fetch(`/sign/${documentId}/submit`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error("Error response:", errorText);
+                        
+                        try {
+                            const data = JSON.parse(errorText);
+                            throw new Error(data.error || 'Failed to submit signatures');
+                        } catch (jsonError) {
+                            throw new Error(`Failed to submit signatures: ${errorText}`);
+                        }
+                    }
+                    
+                    const data = await response.json();
+                    console.log("Submission successful:", data);
+                    
+                    // Show success
+                    loading.classList.add('hidden');
+                    showSuccess('Document signed successfully!');
+                    
+                    // Redirect after delay
+                    setTimeout(() => {
+                        window.location.href = `/document/${documentId}`;
+                    }, 2000);
+                    
+                } catch (error) {
+                    console.error("Error submitting signatures:", error);
+                    loading.classList.add('hidden');
+                    signingArea.classList.remove('hidden');
+                    showError(error.message);
+                }
+            }
+
+            // Queue a new page to be rendered
+            function queueRenderPage(num) {
+                if (pageRendering) {
+                    pageNumPending = num;
+                } else {
+                    renderPage(num);
+                }
+            }
+            
+            // Previous page button
+            prevPageButton.addEventListener('click', function() {
+                if (currentPage <= 1) return;
+                currentPage--;
+                queueRenderPage(currentPage);
+            });
+            
+            // Next page button
+            nextPageButton.addEventListener('click', function() {
+                if (currentPage >= totalPages) return;
+                currentPage++;
+                queueRenderPage(currentPage);
+            });
+            
+            // Cancel button
+            cancelButton.addEventListener('click', function() {
+                if (confirm('Are you sure you want to cancel? All changes will be lost.')) {
+                    window.location.href = '/dashboard';
+                }
+            });
+            
+            function closeSignatureModal() {
+                document.getElementById('modal-backdrop').classList.add('hidden');
+                document.getElementById('signature-modal').classList.add('hidden');
+                activeFieldId = null;
+            }
+
+            // Signature modal events
+            cancelModalButton.addEventListener('click', closeSignatureModal);
+            modalBackdrop.addEventListener('click', closeSignatureModal);
+            saveSignatureButton.addEventListener('click', saveSignature);
+            
+            // Complete signing button - with enhanced validation
+            completeSigningButton.addEventListener('click', function() {
+                console.log("Complete signing button clicked");
+                console.log("All placeholders:", placeholders);
+                console.log("Current signatures:", signatures);
+                
+                // Validate user email before proceeding
+                const currentUserEmail = getUserEmail();
+                if (!currentUserEmail) {
+                    showError("Please sign in to complete the signing process.");
+                    return;
+                }
+                
+                // Check if all user's placeholders are signed
+                const userPlaceholders = placeholders.filter(p => {
+                    const recipientEmail = (p.recipientEmail || '').toLowerCase();
+                    return !recipientEmail || recipientEmail === currentUserEmail;
+                });
+                
+                const allUserPlaceholdersSigned = userPlaceholders.every(p => {
+                    return signatures[p.id.toString()] !== undefined;
+                });
+                
+                if (!allUserPlaceholdersSigned) {
+                    showError("Please sign all your assigned fields before completing.");
+                    return;
+                }
+                
+                // Now submit the signatures
+                submitSignatures();
+            });
+            
+            // Initialize signature pad
+            initSignaturePad();
+            
+            // Start the signing process by checking authentication
+            initSigningProcess();
+        });
+    </script>
+</body>
+</html>

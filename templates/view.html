@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureSign - View Document</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PDF.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <!-- jsPDF library for PDF manipulation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- PDF-Lib for better PDF manipulation -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- crypto-js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        .signature-image-container {
+            position: absolute;
+            cursor: default;
+            z-index: 10;
+        }
+        
+        .signature-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation Header -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/dashboard" class="text-2xl font-bold text-gray-800 flex items-center">
+                            <span class="text-3xl mr-2">🔒</span> SecureSign
+                        </a>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/dashboard" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Dashboard
+                        </a>
+                        <a href="/documents" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            My Documents
+                        </a>
+                        <a href="/verify" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Verify Document
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container max-w-6xl mx-auto px-4 py-8">
+        <div class="card bg-white shadow-md rounded-lg overflow-hidden">
+            <h1 class="text-2xl font-bold text-gray-900 p-6 border-b border-gray-200">View Document</h1>
+            
+            <div id="error-message" class="bg-red-50 border-l-4 border-red-500 p-4 m-6 hidden">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p id="error-text" class="text-sm text-red-700"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="success-message" class="bg-green-50 border-l-4 border-green-500 p-4 m-6 hidden">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p id="success-text" class="text-sm text-green-700"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Password Prompt Section -->
+            <div id="password-prompt" class="p-6">
+                <p class="text-gray-700 mb-4">This document is protected. Please enter the password to view it.</p>
+                
+                <div class="mb-4">
+                    <label for="access-password" class="block text-sm font-medium text-gray-700 mb-1">Document Password</label>
+                    <input 
+                        type="password" 
+                        id="access-password" 
+                        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                        placeholder="Enter document password"
+                    >
+                </div>
+                
+                <button 
+                    id="decrypt-button" 
+                    class="w-full flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    Access Document
+                </button>
+            </div>
+            
+            <!-- Loading Section -->
+            <div id="loading" class="p-6 text-center hidden">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                <p class="text-gray-700">Processing document...</p>
+            </div>
+            
+            <!-- Document View Section -->
+            <div id="document-view" class="hidden">
+                <div class="p-6 border-b border-gray-200 bg-gray-50">
+                    <h2 class="text-xl font-medium text-gray-900 mb-4">Document Details</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="text-sm">
+                            <p class="text-gray-500 mb-1">Document ID:</p>
+                            <p id="document-id" class="font-medium text-gray-900"></p>
+                        </div>
+                        
+                        <div class="text-sm">
+                            <p class="text-gray-500 mb-1">Status:</p>
+                            <p id="document-status" class="font-medium"></p>
+                        </div>
+                        
+                        <div class="text-sm">
+                            <p class="text-gray-500 mb-1">Original Filename:</p>
+                            <p id="document-filename" class="font-medium text-gray-900"></p>
+                        </div>
+                        
+                        <div class="text-sm">
+                            <p class="text-gray-500 mb-1">Signed At:</p>
+                            <p id="signed-at" class="font-medium text-gray-900"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center bg-gray-100 px-6 py-2">
+                    <div class="flex items-center">
+                        <button
+                            id="prev-page"
+                            class="p-1 rounded text-gray-700 hover:bg-gray-200 mr-2"
+                        >
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <span class="text-sm">
+                            Page <span id="page-num">1</span> of <span id="page-count">1</span>
+                        </span>
+                        <button
+                            id="next-page"
+                            class="p-1 rounded text-gray-700 hover:bg-gray-200 ml-2"
+                        >
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Document Container -->
+                <div class="document-container relative h-[600px] overflow-auto border border-gray-200 bg-gray-100">
+                    <div id="pdf-container" class="relative mx-auto bg-white shadow-md">
+                        <!-- Canvas for each page will be inserted here -->
+                    </div>
+                </div>
+                
+                <div class="p-6 bg-gray-50 flex justify-between">
+                    <button
+                        id="back-button"
+                        class="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                        Back to Home
+                    </button>
+                    <button
+                        id="download-button"
+                        class="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                        Download Document
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWf71MsT4AEljGQLBwNkbvayZscOw383Y",
+            authDomain: "digitalsignapplication.firebaseapp.com",
+            projectId: "digitalsignapplication",
+            storageBucket: "digitalsignapplication.firebasestorage.app",
+            messagingSenderId: "437036538199",
+            appId: "1:437036538199:web:cbdec67966ed7d23308612"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get document ID from URL
+            const documentId = window.location.pathname.split('/').pop();
+            
+            // DOM elements
+            const accessPassword = document.getElementById('access-password');
+            const decryptButton = document.getElementById('decrypt-button');
+            const passwordPrompt = document.getElementById('password-prompt');
+            const documentView = document.getElementById('document-view');
+            const loading = document.getElementById('loading');
+            const errorMessage = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+            const successMessage = document.getElementById('success-message');
+            const successText = document.getElementById('success-text');
+            const documentIdSpan = document.getElementById('document-id');
+            const documentFilename = document.getElementById('document-filename');
+            const documentStatus = document.getElementById('document-status');
+            const signedAt = document.getElementById('signed-at');
+            const downloadButton = document.getElementById('download-button');
+            const backButton = document.getElementById('back-button');
+            const pdfContainer = document.getElementById('pdf-container');
+            const pageNum = document.getElementById('page-num');
+            const pageCount = document.getElementById('page-count');
+            const prevPageButton = document.getElementById('prev-page');
+            const nextPageButton = document.getElementById('next-page');
+            
+            // PDF viewing state
+            let pdfDoc = null;
+            let currentPage = 1;
+            let totalPages = 1;
+            let pageRendering = false;
+            let pageNumPending = null;
+            let scale = 1.5;
+            let documentBlob = null;
+            let documentInfo = null;
+            
+            // Set document ID in UI
+            documentIdSpan.textContent = documentId;
+            
+            // Show error message
+            function showError(message) {
+                errorText.textContent = message;
+                errorMessage.classList.remove('hidden');
+                setTimeout(() => {
+                    errorMessage.classList.add('hidden');
+                }, 5000);
+            }
+            
+            // Show success message
+            function showSuccess(message) {
+                successText.textContent = message;
+                successMessage.classList.remove('hidden');
+                setTimeout(() => {
+                    successMessage.classList.add('hidden');
+                }, 5000);
+            }
+            
+            // Decrypt button
+            decryptButton.addEventListener('click', function() {
+                const password = accessPassword.value;
+                if (!password) {
+                    showError('Password is required');
+                    return;
+                }
+                
+                passwordPrompt.classList.add('hidden');
+                loading.classList.remove('hidden');
+                
+                // First get document info
+                getDocumentInfo(password);
+            });
+            
+            // Get document info
+            async function getDocumentInfo(password) {
+                try {
+                    const formData = new FormData();
+                    formData.append('password', password);
+                    
+                    const response = await fetch(`/sign/${documentId}/info`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        const data = await response.json();
+                        throw new Error(data.error || 'Failed to get document info');
+                    }
+                    
+                    const data = await response.json();
+                    documentInfo = data; // Store document info for later use
+                    
+                    // Set document metadata
+                    documentFilename.textContent = data.original_filename || 'document.pdf';
+                    
+                    // Set document status
+                    if (data.status === 'signed') {
+                        documentStatus.textContent = 'Signed';
+                        documentStatus.className = 'font-medium text-green-500';
+                    } else {
+                        documentStatus.textContent = 'Pending';
+                        documentStatus.className = 'font-medium text-yellow-500';
+                    }
+                    
+                    // Set signed date
+                    if (data.signed_at) {
+                        const signedDate = new Date(data.signed_at);
+                        signedAt.textContent = signedDate.toLocaleString();
+                    } else {
+                        signedAt.textContent = 'Not signed yet';
+                    }
+                    
+                    // Now download the document
+                    downloadDocument(password);
+                    
+                } catch (error) {
+                    loading.classList.add('hidden');
+                    passwordPrompt.classList.remove('hidden');
+                    showError(error.message);
+                }
+            }
+            
+            // Download document
+            async function downloadDocument(password) {
+                try {
+                    const formData = new FormData();
+                    formData.append('password', password);
+
+                    const response = await fetch(`/document/${documentId}/download`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const data = await response.json();
+                        throw new Error(data.error || 'Failed to download document');
+                    }
+
+                    // Convert response to blob
+                    documentBlob = await response.blob();
+
+                    // Update hash and save to Firebase (recalculate hash after modification)
+                    const newHash = await calculateDocumentHash(documentBlob);
+                    await updateDocumentHashInFirestore(newHash);
+
+                    // Load the PDF
+                    loadPdf(documentBlob);
+
+                } catch (error) {
+                    loading.classList.add('hidden');
+                    passwordPrompt.classList.remove('hidden');
+                    showError(error.message);
+                }
+            }
+            
+            async function calculateDocumentHash(blob) {
+                return new Promise((resolve, reject) => {
+                    try {
+                        const reader = new FileReader();
+                        
+                        reader.onload = function() {
+                            try {
+                                // Use the entire file for hash calculation (no size limit or sampling)
+                                const arrayBuffer = this.result;
+                                const dataView = new Uint8Array(arrayBuffer);
+                                const wordArray = CryptoJS.lib.WordArray.create(dataView);
+                                const hash = CryptoJS.SHA256(wordArray).toString();
+                                
+                                console.log("Successfully calculated document hash:", hash);
+                                resolve(hash);
+                            } catch (error) {
+                                console.error("Error calculating hash:", error);
+                                reject(error);
+                            }
+                        };
+                        
+                        reader.onerror = function() {
+                            reject(new Error("Failed to read the PDF data for hash calculation"));
+                        };
+                        
+                        // Read the entire file as ArrayBuffer
+                        reader.readAsArrayBuffer(blob);
+                    } catch (error) {
+                        console.error("Error in hash calculation setup:", error);
+                        reject(error);
+                    }
+                });
+            }
+
+            async function updateDocumentHashInFirestore(newHash) {
+                try {
+                    const response = await fetch(`/update-document-hash/${documentId}`, {
+                        method: 'POST',
+                        body: JSON.stringify({ documentHash: newHash }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log("Document hash updated successfully.");
+                    } else {
+                        console.error("Failed to update document hash.");
+                    }
+                } catch (error) {
+                    console.error("Error updating document hash:", error);
+                }
+            }
+
+            // Load PDF
+            function loadPdf(pdfBlob) {
+                // Create a blob URL for the PDF
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                
+                // Load the PDF document
+                const loadingTask = pdfjsLib.getDocument(pdfUrl);
+                loadingTask.promise.then(function(pdf) {
+                    pdfDoc = pdf;
+                    totalPages = pdf.numPages;
+                    pageCount.textContent = totalPages;
+                    
+                    // Initial page rendering
+                    renderPage(currentPage);
+                    
+                    // Show document view
+                    loading.classList.add('hidden');
+                    documentView.classList.remove('hidden');
+                    
+                    // Show success message
+                    showSuccess('Document decrypted successfully');
+                    
+                }).catch(function(error) {
+                    console.error("Error loading PDF:", error);
+                    loading.classList.add('hidden');
+                    passwordPrompt.classList.remove('hidden');
+                    showError('Failed to load PDF: ' + error.message);
+                });
+            }
+            
+            // Render a page
+            function renderPage(pageNumber) {
+                pageRendering = true;
+                
+                // Update page display
+                pageNum.textContent = pageNumber;
+                
+                // Get the page
+                pdfDoc.getPage(pageNumber).then(function(page) {
+                    // Set scale for responsive display
+                    const viewport = page.getViewport({ scale });
+                    
+                    // Create canvas
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    // Clear previous content
+                    pdfContainer.innerHTML = '';
+                    pdfContainer.appendChild(canvas);
+                    
+                    // Set width of PDF container
+                    pdfContainer.style.width = `${viewport.width}px`;
+                    
+                    // Render PDF page
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+                    
+                    const renderTask = page.render(renderContext);
+                    
+                    renderTask.promise.then(function() {
+                        pageRendering = false;
+                        
+                        // Render signatures on this page
+                        renderSignatures(pageNumber);
+                        
+                        if (pageNumPending !== null) {
+                            // New page rendering is pending
+                            renderPage(pageNumPending);
+                            pageNumPending = null;
+                        }
+                    });
+                });
+            }
+            
+            // Render signatures on the current page
+            // Completely revised renderSignatures function to fix positioning issues
+function renderSignatures(pageNumber) {
+    if (!documentInfo || !documentInfo.placeholders || !documentInfo.signatures) {
+        console.log("No document info, placeholders, or signatures available");
+        return;
+    }
+    
+    // First, remove ALL existing signature containers from the entire document
+    const existingSignatures = document.querySelectorAll('.signature-image-container');
+    existingSignatures.forEach(el => el.remove());
+    console.log(`Cleared ${existingSignatures.length} existing signature elements`);
+    
+    // Get the PDF container dimensions for boundary checking
+    const pdfContainerRect = pdfContainer.getBoundingClientRect();
+    const containerWidth = pdfContainerRect.width;
+    const containerHeight = pdfContainerRect.height;
+    
+    // Filter placeholders that belong to the current page
+    const pagePlaceholders = documentInfo.placeholders.filter(p => 
+        parseInt(p.page) === parseInt(pageNumber)
+    );
+    
+    console.log(`Found ${pagePlaceholders.length} placeholders for page ${pageNumber}`);
+    
+    // Process each placeholder on the current page
+    pagePlaceholders.forEach(placeholder => {
+        const placeholderId = placeholder.id.toString();
+        const signatureData = documentInfo.signatures[placeholderId];
+        
+        // Only proceed if this placeholder has signature data
+        if (signatureData) {
+            console.log(`Processing signature for placeholder ${placeholderId}`);
+            
+            // Get positioning information with proper type conversion
+            const x = parseFloat(placeholder.x) || 0;
+            const y = parseFloat(placeholder.y) || 0;
+            const width = parseFloat(placeholder.width) || 150;
+            const height = parseFloat(placeholder.height) || 50;
+            
+            // Boundary check - ensure the signature will be visible
+            if (x < 0 || y < 0 || x > containerWidth || y > containerHeight) {
+                console.warn(`Placeholder ${placeholderId} position (${x},${y}) is outside document bounds - adjusting`);
+            }
+            
+            // Create new signature container
+            const signatureContainer = document.createElement('div');
+            signatureContainer.className = 'signature-image-container';
+            signatureContainer.dataset.placeholderId = placeholderId;
+            
+            // Apply position and size styles
+            signatureContainer.style.left = `${x}px`;
+            signatureContainer.style.top = `${y}px`;
+            signatureContainer.style.width = `${width}px`;
+            signatureContainer.style.height = `${height}px`;
+            
+            // Create the image element
+            const img = document.createElement('img');
+            img.src = `data:image/png;base64,${signatureData}`;
+            img.className = 'signature-image';
+            img.alt = 'Signature';
+            img.draggable = false; // Prevent dragging
+            
+            // Add to DOM
+            signatureContainer.appendChild(img);
+            pdfContainer.appendChild(signatureContainer);
+            
+            console.log(`Rendered signature for placeholder ${placeholderId} at position x:${x}, y:${y}, w:${width}, h:${height}`);
+        }
+    });
+}
+            
+            // Queue a new page to be rendered
+            function queueRenderPage(num) {
+                if (pageRendering) {
+                    pageNumPending = num;
+                } else {
+                    renderPage(num);
+                }
+            }
+            
+            // Previous page button
+            prevPageButton.addEventListener('click', function() {
+                if (currentPage <= 1) return;
+                currentPage--;
+                queueRenderPage(currentPage);
+            });
+            
+            // Next page button
+            nextPageButton.addEventListener('click', function() {
+                if (currentPage >= totalPages) return;
+                currentPage++;
+                queueRenderPage(currentPage);
+            });
+
+            // Download button
+            downloadButton.addEventListener('click', async function() {
+                if (documentBlob && documentInfo) {
+                    try {
+                        // If document has signatures, generate a new PDF with embedded signatures
+                        if (documentInfo.signatures && Object.keys(documentInfo.signatures).length > 0) {
+                            showSuccess('Preparing document with signatures...');
+                            await downloadPDFWithSignatures();
+                        } else {
+                            // No signatures, download original PDF
+                            downloadOriginalPDF();
+                        }
+                    } catch (error) {
+                        console.error('Download error:', error);
+                        showError('Failed to download document: ' + error.message);
+                    }
+                } else {
+                    showError('Document not available for download');
+                }
+            });
+            
+            // Function to download the original PDF
+            function downloadOriginalPDF() {
+                const url = URL.createObjectURL(documentBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = documentFilename.textContent || 'document.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showSuccess('Download started');
+            }
+            
+            // Function to download PDF with embedded signatures
+
+            // Original function to download PDF with embedded signatures
+            // Updated downloadPDFWithSignatures function with fixed hash calculation
+            async function downloadPDFWithSignatures() {
+                try {
+                    showSuccess('Preparing document with signatures...');
+                    
+                    // Ensure CryptoJS is loaded
+                    if (typeof CryptoJS === 'undefined') {
+                        // Add script tag if needed
+                        await new Promise((resolve, reject) => {
+                            const script = document.createElement('script');
+                            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
+                            script.onload = resolve;
+                            script.onerror = () => reject(new Error('Failed to load CryptoJS'));
+                            document.head.appendChild(script);
+                        });
+                    }
+                    
+                    // Use PDF-Lib if available (modern approach), fallback to jsPDF
+                    if (typeof PDFLib !== 'undefined') {
+                        try {
+                            await downloadPDFWithSignaturesPDFLib();
+                            return; // Exit if PDF-Lib method succeeds
+                        } catch (pdfLibError) {
+                            console.warn('PDF-Lib method failed, falling back to jsPDF:', pdfLibError);
+                            // Continue with jsPDF method
+                        }
+                    }
+                    
+                    // jsPDF fallback method
+                    const { jsPDF } = window.jspdf;
+                    
+                    // Get the original PDF as array buffer
+                    const arrayBuffer = await documentBlob.arrayBuffer();
+                    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                    const pdf = await loadingTask.promise;
+                    
+                    // Get first page to determine dimensions
+                    const firstPage = await pdf.getPage(1);
+                    const originalViewport = firstPage.getViewport({ scale: 1 });
+                    
+                    console.log(`Original PDF dimensions: ${originalViewport.width}x${originalViewport.height}`);
+                    
+                    // Create new PDF with same dimensions as the original
+                    const newPdf = new jsPDF({
+                        orientation: originalViewport.width > originalViewport.height ? 'landscape' : 'portrait', 
+                        unit: 'pt',
+                        format: [originalViewport.width, originalViewport.height]
+                    });
+                    
+                    // For each page in the PDF
+                    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                        if (pageNum > 1) {
+                            newPdf.addPage();
+                        }
+                        
+                        // Get page and its original viewport
+                        const page = await pdf.getPage(pageNum);
+                        const pageViewport = page.getViewport({ scale: 1 });
+                        
+                        // Create a canvas for rendering
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = pageViewport.height;
+                        canvas.width = pageViewport.width;
+                        
+                        // Render the page to canvas
+                        await page.render({
+                            canvasContext: context,
+                            viewport: pageViewport
+                        }).promise;
+                        
+                        // Add the page image to the PDF
+                        const imgData = canvas.toDataURL('image/jpeg', 0.9);  // 90% quality JPEG
+                        newPdf.addImage(imgData, 'JPEG', 0, 0, pageViewport.width, pageViewport.height);
+                        
+                        // Find placeholders for this page
+                        const pagePlaceholders = documentInfo.placeholders.filter(p => 
+                            parseInt(p.page) === parseInt(pageNum)
+                        );
+                        
+                        // Use same scale as in the viewer to maintain consistency
+                        const viewerScale = scale;
+                        
+                        // For each placeholder on this page
+                        for (const placeholder of pagePlaceholders) {
+                            const placeholderId = placeholder.id.toString();
+                            const signatureData = documentInfo.signatures[placeholderId];
+                            
+                            if (signatureData) {
+                                // Convert from viewer coordinates to original document coordinates
+                                const x = parseFloat(placeholder.x) / viewerScale;
+                                const y = parseFloat(placeholder.y) / viewerScale;
+                                const width = parseFloat(placeholder.width) / viewerScale;
+                                const height = parseFloat(placeholder.height) / viewerScale;
+                                
+                                // Add signature image to PDF
+                                const signatureImg = `data:image/png;base64,${signatureData}`;
+                                newPdf.addImage(signatureImg, 'PNG', x, y, width, height);
+                            }
+                        }
+                    }
+                    
+                    // Add metadata and verification code
+                    const verificationCode = generateVerificationCode(documentId);
+                    newPdf.setProperties({
+                        title: `SecureSign Document: ${documentId}`,
+                        subject: documentId,
+                        author: 'SecureSign Application',
+                        creator: 'SecureSign v1.0',
+                        keywords: `SecureSign,Verified,${documentId},${verificationCode}`
+                    });
+                    
+                    // Generate the PDF as a Blob
+                    const pdfBlob = newPdf.output('blob');
+                    
+                    // Calculate hash using our improved, consistent method
+                    try {
+                        // Calculate hash of the entire generated PDF
+                        const calculatedHash = await calculateDocumentHash(pdfBlob);
+                        
+                        // Update the document hash on the server
+                        const hashUpdateForm = new FormData();
+                        hashUpdateForm.append('password', accessPassword.value);
+                        hashUpdateForm.append('documentHash', calculatedHash);
+                        hashUpdateForm.append('verificationCode', verificationCode);
+                        
+                        // Send request to update the hash
+                        const hashUpdateResponse = await fetch(`/document/${documentId}/update-hash`, {
+                            method: 'POST',
+                            body: hashUpdateForm
+                        });
+                        
+                        if (hashUpdateResponse.ok) {
+                            const updateResult = await hashUpdateResponse.json();
+                            console.log("Document hash updated successfully:", updateResult.document_hash);
+                            showSuccess('Document hash updated for verification');
+                        } else {
+                            const errorData = await hashUpdateResponse.json();
+                            console.error("Failed to update document hash:", errorData);
+                            showError("Warning: Server couldn't update the document hash. Verification may not work correctly.");
+                        }
+                    } catch (hashError) {
+                        console.error("Error calculating or updating document hash:", hashError);
+                        showError("Warning: Error calculating document hash. Verification may not work correctly.");
+                    }
+                    
+                    // Download the PDF regardless of hash calculation success/failure
+                    const url = URL.createObjectURL(pdfBlob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = documentFilename.textContent.replace('.pdf', '_signed.pdf') || 'document_signed.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    showSuccess('Document with signatures downloaded successfully');
+                } catch (error) {
+                    console.error('Error creating PDF with signatures:', error);
+                    showError('Failed to create PDF with signatures. Downloading original document instead.');
+                    downloadOriginalPDF();
+                }
+            }
+
+            // Function to download the original PDF
+            function downloadOriginalPDF() {
+                const url = URL.createObjectURL(documentBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = documentFilename.textContent || 'document.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showSuccess('Download started');
+            }
+
+            // In view.html - downloadPDFWithSignaturesPDFLib function
+            async function downloadPDFWithSignaturesPDFLib() {
+                // Make sure PDFLib is available
+                if (typeof PDFLib === 'undefined') {
+                    throw new Error('PDF-Lib library not loaded');
+                }
+                
+                // Get the PDF data
+                const pdfBytes = await documentBlob.arrayBuffer();
+                
+                // Load the PDF with PDF-Lib
+                const { PDFDocument, rgb } = PDFLib;
+                const pdfDoc = await PDFDocument.load(pdfBytes);
+                
+                // Add SecureSign metadata
+                const verificationCode = generateVerificationCode(documentId);
+                pdfDoc.setTitle(`SecureSign Document: ${documentId}`);
+                pdfDoc.setSubject(documentId); // Store the document ID in metadata
+                pdfDoc.setProducer('SecureSign Application');
+                pdfDoc.setCreator('SecureSign v1.0');
+                pdfDoc.setKeywords([`SecureSign`, `Verified`, `${documentId}`, `${verificationCode}`]);
+                
+                // Process each signature
+                for (const placeholder of documentInfo.placeholders) {
+                    const placeholderId = placeholder.id.toString();
+                    const signatureData = documentInfo.signatures[placeholderId];
+                    
+                    if (signatureData) {
+                        try {
+                            // Get the page
+                            const pageIndex = parseInt(placeholder.page) - 1;
+                            if (pageIndex >= pdfDoc.getPageCount()) {
+                                console.warn(`Page ${pageIndex + 1} does not exist in the document`);
+                                continue;
+                            }
+                            
+                            const page = pdfDoc.getPages()[pageIndex];
+                            
+                            // Get dimensions
+                            const { width: pageWidth, height: pageHeight } = page.getSize();
+                            
+                            // Convert from viewer coordinates to PDF coordinates
+                            // Note the y-coordinate conversion (PDF coords are from bottom)
+                            const viewerScale = scale;
+                            const x = parseFloat(placeholder.x) / viewerScale;
+                            const y = pageHeight - (parseFloat(placeholder.y) / viewerScale) - (parseFloat(placeholder.height) / viewerScale);
+                            const width = parseFloat(placeholder.width) / viewerScale;
+                            const height = parseFloat(placeholder.height) / viewerScale;
+                            
+                            // Embed signature image
+                            try {
+                                // Convert base64 to Uint8Array
+                                const signatureImageBytes = Uint8Array.from(atob(signatureData), c => c.charCodeAt(0));
+                                
+                                // Try PNG embedding first
+                                try {
+                                    const signatureImage = await pdfDoc.embedPng(signatureImageBytes);
+                                    
+                                    // Add signature to the page
+                                    page.drawImage(signatureImage, {
+                                        x,
+                                        y,
+                                        width,
+                                        height,
+                                    });
+                                    
+                                    console.log(`Added signature to page ${pageIndex + 1} at x:${x}, y:${y}, w:${width}, h:${height}`);
+                                } catch (pngError) {
+                                    // If PNG embedding fails, try JPEG
+                                    try {
+                                        const signatureImage = await pdfDoc.embedJpg(signatureImageBytes);
+                                        
+                                        // Add signature to the page
+                                        page.drawImage(signatureImage, {
+                                            x,
+                                            y,
+                                            width,
+                                            height,
+                                        });
+                                        
+                                        console.log(`Added signature (as JPEG) to page ${pageIndex + 1}`);
+                                    } catch (jpgError) {
+                                        console.error(`Failed to embed signature as PNG or JPEG:`, pngError);
+                                        throw jpgError;
+                                    }
+                                }
+                            } catch (imageError) {
+                                console.error(`Error embedding signature image: ${imageError}`);
+                            }
+                        } catch (pageError) {
+                            console.error(`Error processing page for signature: ${pageError}`);
+                        }
+                    }
+                }
+                
+                // Save the PDF
+                const modifiedPdfBytes = await pdfDoc.save();
+                const pdfBlob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+                
+                // Calculate hash using our consistent method
+                const documentHash = await calculateDocumentHash(pdfBlob);
+                
+                console.log("Calculated hash for signed document:", documentHash);
+                
+                // Update the document hash on server
+                const hashUpdateForm = new FormData();
+                hashUpdateForm.append('password', accessPassword.value);
+                hashUpdateForm.append('documentHash', documentHash);
+                hashUpdateForm.append('verificationCode', verificationCode);
+                
+                const hashUpdateResponse = await fetch(`/document/${documentId}/update-hash`, {
+                    method: 'POST',
+                    body: hashUpdateForm
+                });
+                
+                if (hashUpdateResponse.ok) {
+                    const updateResult = await hashUpdateResponse.json();
+                    console.log("Document hash updated successfully:", updateResult.document_hash);
+                    showSuccess('Document hash updated for verification');
+                } else {
+                    console.error("Failed to update document hash");
+                }
+                
+                // Download the PDF
+                const url = URL.createObjectURL(pdfBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = documentFilename.textContent.replace('.pdf', '_signed.pdf') || 'document_signed.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                return true; // Indicate success
+            }
+
+            // Helper function to generate a verification code
+            function generateVerificationCode(documentId) {
+                const timestamp = new Date().getTime();
+                const randomPart = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+                return `SS-${documentId.slice(0, 8)}-${randomPart}-${timestamp.toString(36)}`;
+            }
+            
+            // Back button
+            backButton.addEventListener('click', function() {
+                window.location.href = '/dashboard';
+            });
+            
+            // Enter key for password input
+            accessPassword.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    decryptButton.click();
+                }
+            });
+        });
+        // At the top of your script, add this debug function
+        function debugLog(message, data) {
+            console.log(`[SecureSign Debug] ${message}`, data || '');
+        }
+
+        // Then use it throughout your code:
+        debugLog('Attempting to download document with signatures');
+    </script>
+</body>
+</html>

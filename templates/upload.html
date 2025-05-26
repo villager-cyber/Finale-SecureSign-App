@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureSign - Upload Document</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<style>
+    .signature-placeholder {
+        position: absolute;
+        background-color: rgba(52, 152, 219, 0.2);
+        border: 2px solid #3498db;
+        border-radius: 4px;
+        min-width: 150px;
+        min-height: 50px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+        z-index: 10;
+        cursor: move;
+        padding: 8px;
+    }
+
+    .signature-placeholder .email-input {
+        width: 100%;
+        margin-top: 4px;
+        padding: 2px 4px;
+        font-size: 11px;
+        border: 1px solid #ccc;
+        border-radius: 2px;
+        background-color: white;
+    }
+
+    .signature-placeholder .placeholder-label {
+        font-size: 12px;
+        color: #2c3e50;
+        margin-bottom: 2px;
+        font-weight: 500;
+    }
+</style>
+<body class="bg-gray-100">
+    <!-- Navigation Header -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/dashboard" class="text-2xl font-bold text-gray-800 flex items-center">
+                            <span class="text-3xl mr-2">🔒</span> SecureSign
+                        </a>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/dashboard" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Dashboard
+                        </a>
+                        <a href="/documents" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            My Documents
+                        </a>
+                        <a href="/verify" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Verify Document
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="ml-4 flex items-center md:ml-6">
+                        <span id="user-name" class="text-gray-500 mr-4">
+                            Loading...
+                        </span>
+                        <button id="logout-button" class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-3xl mx-auto px-4 py-8">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">Upload Document</h1>
+        
+        <!-- Error Message -->
+        <div id="error-container" class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 hidden">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p id="error-message" class="text-sm text-red-700"></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Success Message -->
+        <div id="success-container" class="bg-green-50 border-l-4 border-green-500 p-4 mb-6 hidden">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p id="success-message" class="text-sm text-green-700"></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+            <!-- File Upload Section -->
+            <div class="px-6 py-8 border-b border-gray-200">
+                <div id="drop-area" class="text-center border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-blue-500 transition duration-150">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <div class="mt-4 text-sm text-gray-600">
+                        <label
+                            for="file-upload"
+                            class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                        >
+                            <span>Upload a document</span>
+                            <input 
+                                id="file-upload" 
+                                name="file-upload" 
+                                type="file" 
+                                class="sr-only" 
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                            />
+                        </label>
+                        <p class="pl-1">or drag and drop</p>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">
+                        PDF, Word, Excel, JPEG, or PNG up to 10MB
+                    </p>
+                </div>
+            </div>
+            
+            <!-- File Details Section -->
+            <div id="file-details" class="px-6 py-4 bg-gray-50 hidden">
+                <div class="flex items-center">
+                    <div id="file-icon-container" class="text-gray-500 w-8 h-8 flex items-center justify-center">
+                        <i id="file-icon" class="fas fa-file-pdf"></i>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <div id="file-name" class="text-sm font-medium text-gray-900">document.pdf</div>
+                        <div id="file-size" class="text-xs text-gray-500">0 KB</div>
+                    </div>
+                    <button
+                        id="remove-file-button"
+                        class="text-gray-400 hover:text-gray-500"
+                        type="button"
+                    >
+                        <span class="sr-only">Remove file</span>
+                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Upload Progress Bar -->
+                <div id="upload-progress-container" class="mt-4 hidden">
+                    <div class="text-sm font-medium text-gray-700 mb-1" id="upload-status">
+                        Uploading...
+                    </div>
+                    <div class="bg-gray-200 rounded-full h-2.5">
+                        <div 
+                            id="upload-progress-bar"
+                            class="bg-blue-600 h-2.5 rounded-full" 
+                            style="width: 0%"
+                        ></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Document Protection Section -->
+            <div class="px-6 py-4 border-t border-gray-200">
+                <h3 class="text-md font-medium text-gray-900 mb-4">Document Security</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label for="document-password" class="block text-sm font-medium text-gray-700">
+                            Document Password
+                        </label>
+                        <div class="mt-1">
+                            <input
+                                type="password"
+                                id="document-password"
+                                name="document-password"
+                                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                placeholder="Create a strong password"
+                            />
+                        </div>
+                        <div id="password-strength" class="h-1 w-full bg-gray-200 mt-1 mb-1">
+                            <div id="password-meter" class="h-1 bg-gray-400 transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p id="password-strength-text" class="text-xs text-gray-500 mt-1"></p>
+                    </div>
+                    
+                    <div>
+                        <label for="confirm-password" class="block text-sm font-medium text-gray-700">
+                            Confirm Password
+                        </label>
+                        <div class="mt-1">
+                            <input
+                                type="password"
+                                id="confirm-password"
+                                name="confirm-password"
+                                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                placeholder="Confirm your password"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PDF Viewer Section - Add this after the document protection section -->
+            <div id="pdf-viewer-section" class="px-6 py-4 border-t border-gray-200 hidden">
+                <h3 class="text-md font-medium text-gray-900 mb-4">Add Signature Placeholders</h3>
+                <p class="text-sm text-gray-600 mb-4">Click on the document to add signature placeholders where you want signatures to appear.</p>
+                
+                <!-- Controls Bar -->
+                <div class="flex justify-between items-center bg-gray-100 px-4 py-2 mb-4 rounded">
+                    <div class="flex items-center">
+                        <button
+                            id="prev-page-btn"
+                            class="p-1 rounded text-gray-700 hover:bg-gray-200 mr-2"
+                            disabled
+                        >
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <span class="text-sm">
+                            Page <span id="current-page">1</span> of <span id="total-pages">1</span>
+                        </span>
+                        <button
+                            id="next-page-btn"
+                            class="p-1 rounded text-gray-700 hover:bg-gray-200 ml-2"
+                            disabled
+                        >
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div>
+                        <button
+                            id="add-placeholder-btn"
+                            class="px-3 py-1 border border-blue-300 rounded-md text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100"
+                        >
+                            <i class="fas fa-signature mr-1"></i> Add Placeholder
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- PDF Container -->
+                <div class="pdf-container relative h-[500px] overflow-auto border border-gray-200 bg-gray-100">
+                    <div id="pdf-render-container" class="relative mx-auto bg-white shadow-md">
+                        <!-- Canvas for PDF rendering will be inserted here -->
+                    </div>
+                    
+                    <!-- Signature placeholders will be added here -->
+                    <div id="placeholders-container"></div>
+                </div>
+                
+                <div class="mt-4 text-sm text-gray-600">
+                    <p><i class="fas fa-info-circle mr-1 text-blue-500"></i> Drag the placeholders to position them. Currently added: <span id="placeholder-count">0</span></p>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="px-6 py-4 bg-gray-50 text-right">
+                <button
+                    type="button"
+                    id="cancel-button"
+                    class="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 mr-3"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    id="encrypt-button"
+                    class="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    Encrypt Document
+                </button>
+            </div>
+        </div>
+        
+        <!-- Link Sharing Section (appears after successful encryption) -->
+        <div id="link-sharing-section" class="bg-white shadow rounded-lg p-6 mt-6 hidden">
+            <h2 class="text-xl font-medium text-gray-900 mb-3">Document Encrypted Successfully!</h2>
+            <p class="text-sm text-gray-600 mb-4">Your document has been encrypted and is ready for signing. Use the link below to share with your recipient.</p>
+            
+            <div class="mb-4">
+                <label for="signing-link" class="block text-sm font-medium text-gray-700 mb-1">
+                    Signing Link:
+                </label>
+                <div class="flex">
+                    <input
+                        type="text"
+                        id="signing-link"
+                        readonly
+                        class="flex-1 block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                    <button
+                        id="copy-link-button"
+                        class="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none"
+                    >
+                        <i class="far fa-clipboard mr-2"></i>
+                        Copy
+                    </button>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">
+                    Share this link with your recipient along with the password you created. 
+                    They will need both to access and sign the document.
+                </p>
+            </div>
+            
+            <div class="mb-6">
+                <label for="view-link" class="block text-sm font-medium text-gray-700 mb-1">
+                    View Link (for after signing):
+                </label>
+                <div class="flex">
+                    <input
+                        type="text"
+                        id="view-link"
+                        readonly
+                        class="flex-1 block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                    <button
+                        id="copy-view-button"
+                        class="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none"
+                    >
+                        <i class="far fa-clipboard mr-2"></i>
+                        Copy
+                    </button>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">
+                    Use this link to view the signed document after your recipient has completed signing.
+                </p>
+            </div>
+            
+            <div class="flex justify-end">
+                <button
+                    id="new-document-button"
+                    class="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    Create New Document
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+            <div id="loading-text" class="text-gray-700 font-medium">Encrypting document...</div>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // Add these variables to your existing variables
+        let pdfDocumentInstance = null;
+        let currentPageNumber = 1;
+        let totalPageCount = 1;
+        let signaturePlaceholders = [];
+        let placeholderId = 1;
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWf71MsT4AEljGQLBwNkbvayZscOw383Y",
+            authDomain: "digitalsignapplication.firebaseapp.com",
+            projectId: "digitalsignapplication",
+            storageBucket: "digitalsignapplication.firebasestorage.app",
+            messagingSenderId: "437036538199",
+            appId: "1:437036538199:web:cbdec67966ed7d23308612"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM element references
+            const userName = document.getElementById('user-name');
+            const logoutButton = document.getElementById('logout-button');
+            const fileInput = document.getElementById('file-upload');
+            const dropArea = document.getElementById('drop-area');
+            const fileDetails = document.getElementById('file-details');
+            const fileName = document.getElementById('file-name');
+            const fileSize = document.getElementById('file-size');
+            const fileIcon = document.getElementById('file-icon');
+            const removeFileButton = document.getElementById('remove-file-button');
+            const uploadProgressContainer = document.getElementById('upload-progress-container');
+            const uploadProgressBar = document.getElementById('upload-progress-bar');
+            const uploadStatus = document.getElementById('upload-status');
+            const passwordInput = document.getElementById('document-password');
+            const confirmPasswordInput = document.getElementById('confirm-password');
+            const passwordMeter = document.getElementById('password-meter');
+            const passwordStrengthText = document.getElementById('password-strength-text');
+            const encryptButton = document.getElementById('encrypt-button');
+            const cancelButton = document.getElementById('cancel-button');
+            const errorContainer = document.getElementById('error-container');
+            const errorMessage = document.getElementById('error-message');
+            const successContainer = document.getElementById('success-container');
+            const successMessage = document.getElementById('success-message');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+            const linkSharingSection = document.getElementById('link-sharing-section');
+            const signingLink = document.getElementById('signing-link');
+            const viewLink = document.getElementById('view-link');
+            const copyLinkButton = document.getElementById('copy-link-button');
+            const copyViewButton = document.getElementById('copy-view-button');
+            const newDocumentButton = document.getElementById('new-document-button');
+            
+            // File storage
+            let selectedFile = null;
+            
+            // Show error message
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    errorContainer.classList.add('hidden');
+                }, 5000);
+            }
+            
+            // Show success message
+            function showSuccess(message) {
+                successMessage.textContent = message;
+                successContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    successContainer.classList.add('hidden');
+                }, 5000);
+            }
+            
+            // Format file size
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            }
+            
+            // Update file icon based on file type
+            function updateFileIcon(fileType) {
+                if (fileType.includes('pdf')) {
+                    fileIcon.className = 'fas fa-file-pdf text-red-500';
+                } else if (fileType.includes('word') || fileType.includes('doc')) {
+                    fileIcon.className = 'fas fa-file-word text-blue-500';
+                } else if (fileType.includes('excel') || fileType.includes('sheet')) {
+                    fileIcon.className = 'fas fa-file-excel text-green-500';
+                } else if (fileType.includes('image')) {
+                    fileIcon.className = 'fas fa-file-image text-purple-500';
+                } else {
+                    fileIcon.className = 'fas fa-file text-gray-500';
+                }
+            }
+            
+            // Handle file selection
+            function handleFileSelect(file) {
+                // Check file size
+                if (file.size > 10 * 1024 * 1024) { // 10MB
+                    showError('File size exceeds 10MB limit');
+                    return;
+                }
+                
+                // Check file type
+                const validTypes = [
+                    'application/pdf',
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'application/vnd.ms-excel',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'image/jpeg',
+                    'image/jpg',
+                    'image/png'
+                ];
+                
+                if (!validTypes.includes(file.type)) {
+                    showError('Invalid file type. Please upload PDF, Word, Excel, or image files.');
+                    return;
+                }
+                
+                // Set selected file
+                selectedFile = file;
+                
+                // Update file details
+                fileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(file.size);
+                updateFileIcon(file.type);
+                
+                // Show file details
+                fileDetails.classList.remove('hidden');
+
+                if (file.type === 'application/pdf') {
+                    loadPdfPreview(file);
+                } else {
+                // Hide PDF viewer for non-PDF files
+                    document.getElementById('pdf-viewer-section').classList.add('hidden');
+                }
+                
+                // Hide progress bar
+                uploadProgressContainer.classList.add('hidden');
+            }
+            
+            // Function to load PDF preview
+            function loadPdfPreview(pdfFile) {
+                const fileReader = new FileReader();
+                
+                fileReader.onload = function() {
+                    const pdfData = new Uint8Array(this.result);
+                    
+                    // Load the PDF using PDF.js
+                    pdfjsLib.getDocument({ data: pdfData }).promise.then(function(pdfDoc) {
+                        pdfDocumentInstance = pdfDoc;
+                        totalPageCount = pdfDoc.numPages;
+                        document.getElementById('total-pages').textContent = totalPageCount;
+                        
+                        // Enable/disable navigation buttons
+                        updateNavigationButtons();
+                        
+                        // Render the first page
+                        renderPdfPage(1);
+                        
+                        // Show PDF viewer section
+                        document.getElementById('pdf-viewer-section').classList.remove('hidden');
+                    }).catch(function(error) {
+                        console.error('Error loading PDF:', error);
+                        showError('Failed to load PDF preview: ' + error.message);
+                    });
+                };
+                
+                fileReader.readAsArrayBuffer(pdfFile);
+            }
+
+            // Function to render a specific PDF page
+            function renderPdfPage(pageNumber) {
+                if (!pdfDocumentInstance) return;
+                
+                // Get the specified page
+                pdfDocumentInstance.getPage(pageNumber).then(function(page) {
+                    const scale = 1.5;
+                    const viewport = page.getViewport({ scale });
+                    
+                    // Create canvas
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    // Clear previous content
+                    const pdfContainer = document.getElementById('pdf-render-container');
+                    pdfContainer.innerHTML = '';
+                    pdfContainer.appendChild(canvas);
+                    
+                    // Adjust container width
+                    pdfContainer.style.width = viewport.width + 'px';
+                    
+                    // Render PDF page
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+                    
+                    page.render(renderContext).promise.then(function() {
+                        currentPageNumber = pageNumber;
+                        document.getElementById('current-page').textContent = pageNumber;
+                        updateNavigationButtons();
+                        
+                        // Refresh placeholders on the current page
+                        refreshPlaceholders();
+                    });
+                });
+            }
+
+            // Function to update navigation buttons
+            function updateNavigationButtons() {
+                const prevBtn = document.getElementById('prev-page-btn');
+                const nextBtn = document.getElementById('next-page-btn');
+                
+                prevBtn.disabled = currentPageNumber <= 1;
+                nextBtn.disabled = currentPageNumber >= totalPageCount;
+            }
+
+            // Function to refresh placeholders on current page
+            function refreshPlaceholders() {
+                const placeholdersContainer = document.getElementById('placeholders-container');
+                placeholdersContainer.innerHTML = '';
+                
+                // Filter placeholders for current page
+                const currentPagePlaceholders = signaturePlaceholders.filter(p => p.page === currentPageNumber);
+                
+                // Add placeholder elements
+                currentPagePlaceholders.forEach(placeholder => {
+                    addPlaceholderElement(placeholder);
+                });
+                
+                // Update placeholder count
+                document.getElementById('placeholder-count').textContent = signaturePlaceholders.length;
+            }
+
+            // Function to add a placeholder element to the DOM
+            // Function to add a placeholder element to the DOM in upload.html
+            function addPlaceholderElement(placeholder) {
+                const placeholderElement = document.createElement('div');
+                placeholderElement.className = 'signature-placeholder absolute cursor-move';
+                placeholderElement.setAttribute('data-placeholder-id', placeholder.id);
+                
+                // Log the position before applying
+                console.log(`Adding placeholder ${placeholder.id} at x:${placeholder.x}, y:${placeholder.y}, w:${placeholder.width}, h:${placeholder.height}`);
+                
+                // Position element using the exact coordinates
+                placeholderElement.style.left = `${placeholder.x}px`;
+                placeholderElement.style.top = `${placeholder.y}px`;
+                placeholderElement.style.width = `${placeholder.width}px`;
+                placeholderElement.style.height = `${placeholder.height}px`;
+                
+                // Create the label
+                const labelElement = document.createElement('div');
+                labelElement.className = 'placeholder-label';
+                labelElement.textContent = 'Signature';
+                
+                // Create the email input
+                const emailInput = document.createElement('input');
+                emailInput.type = 'email';
+                emailInput.className = 'email-input';
+                emailInput.placeholder = 'Recipient email';
+                emailInput.value = placeholder.recipientEmail || '';
+                
+                // Add input event to update the placeholder data
+                emailInput.addEventListener('input', function(e) {
+                    e.stopPropagation(); // Prevent dragging when typing
+                    placeholder.recipientEmail = e.target.value.trim().toLowerCase(); // Add trim and lowercase to standardize emails
+                    console.log(`Updated email for placeholder ${placeholder.id}: ${placeholder.recipientEmail}`);
+                });
+                
+                // Add blur event to finalize and validate email
+                emailInput.addEventListener('blur', function(e) {
+                    const email = e.target.value.trim().toLowerCase();
+                    if (email) {
+                        if (isValidEmail(email)) {
+                            placeholder.recipientEmail = email;
+                            emailInput.style.borderColor = '#4caf50'; // Green for valid
+                        } else {
+                            emailInput.style.borderColor = '#f44336'; // Red for invalid
+                            showError('Please enter a valid email address');
+                        }
+                    } else {
+                        placeholder.recipientEmail = '';
+                        emailInput.style.borderColor = ''; // Reset border
+                    }
+                });
+                
+                emailInput.addEventListener('mousedown', function(e) {
+                    e.stopPropagation(); // Prevent dragging when clicking on input
+                });
+                
+                // Add delete button
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center';
+                deleteButton.innerHTML = '×';
+                deleteButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    
+                    // Remove from array
+                    signaturePlaceholders = signaturePlaceholders.filter(p => p.id !== placeholder.id);
+                    
+                    // Remove from DOM
+                    placeholderElement.remove();
+                    
+                    // Update count
+                    document.getElementById('placeholder-count').textContent = signaturePlaceholders.length;
+                });
+                
+                // Append elements to the placeholder
+                placeholderElement.appendChild(labelElement);
+                placeholderElement.appendChild(emailInput);
+                placeholderElement.appendChild(deleteButton);
+                
+                // Make draggable and ensure coordinates are stored as absolute pixels
+                makeDraggable(placeholderElement, placeholder);
+                
+                // Add to container
+                document.getElementById('placeholders-container').appendChild(placeholderElement);
+                
+                // Log after adding to DOM to verify
+                console.log(`Placeholder element added. Actual position: left=${placeholderElement.style.left}, top=${placeholderElement.style.top}`);
+            }
+
+            // Add a helper function to validate emails
+            function isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            }
+
+            // Modified makeDraggable function to ensure positions are tracked correctly
+            function makeDraggable(element, placeholder) {
+                let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+                
+                element.onmousedown = dragMouseDown;
+                
+                function dragMouseDown(e) {
+                    e.preventDefault();
+                    // Get cursor position at start
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    document.onmouseup = closeDragElement;
+                    document.onmousemove = elementDrag;
+                }
+                
+                function elementDrag(e) {
+                    e.preventDefault();
+                    // Calculate new cursor position
+                    pos1 = pos3 - e.clientX;
+                    pos2 = pos4 - e.clientY;
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    
+                    // Set new position
+                    const newTop = element.offsetTop - pos2;
+                    const newLeft = element.offsetLeft - pos1;
+                    
+                    element.style.top = newTop + "px";
+                    element.style.left = newLeft + "px";
+                    
+                    // Update placeholder data with absolute pixel values
+                    placeholder.x = newLeft;
+                    placeholder.y = newTop;
+                    
+                    console.log(`Dragging placeholder ${placeholder.id} to x:${placeholder.x}, y:${placeholder.y}`);
+                }
+                
+                function closeDragElement() {
+                    // Stop moving when mouse button is released
+                    document.onmouseup = null;
+                    document.onmousemove = null;
+                    
+                    console.log(`Final position for placeholder ${placeholder.id}: x:${placeholder.x}, y:${placeholder.y}`);
+                }
+            }
+
+            // Add placeholder button click handler
+            // Add placeholder button click handler
+            document.getElementById('add-placeholder-btn').addEventListener('click', function() {
+                // Get current user's email as default recipient
+                const currentUserEmail = localStorage.getItem('userEmail') || '';
+                
+                // Default size and position for new placeholder
+                const newPlaceholder = {
+                    id: placeholderId++,
+                    page: currentPageNumber,
+                    x: 100,    // Absolute x position in pixels
+                    y: 100,    // Absolute y position in pixels
+                    width: 200, // Width in pixels  
+                    height: 70,  // Height in pixels
+                    recipientEmail: currentUserEmail // Pre-fill with current user's email
+                };
+                
+                // Add to array
+                signaturePlaceholders.push(newPlaceholder);
+                
+                // Add to DOM
+                addPlaceholderElement(newPlaceholder);
+                
+                // Update count
+                document.getElementById('placeholder-count').textContent = signaturePlaceholders.length;
+            });
+
+            // Page navigation button handlers
+            document.getElementById('prev-page-btn').addEventListener('click', function() {
+                if (currentPageNumber > 1) {
+                    renderPdfPage(currentPageNumber - 1);
+                }
+            });
+
+            document.getElementById('next-page-btn').addEventListener('click', function() {
+                if (currentPageNumber < totalPageCount) {
+                    renderPdfPage(currentPageNumber + 1);
+                }
+            });
+
+            // Function to normalize coordinates for consistent storage
+            // Function to normalize coordinates for consistent storage
+            function normalizeCoordinates(placeholder) {
+                return {
+                    id: placeholder.id,
+                    page: parseInt(placeholder.page), // Ensure it's an integer
+                    x: parseFloat(placeholder.x),     // Ensure it's a number
+                    y: parseFloat(placeholder.y),     // Ensure it's a number
+                    width: parseFloat(placeholder.width),  // Ensure it's a number
+                    height: parseFloat(placeholder.height), // Ensure it's a number
+                    recipientEmail: (placeholder.recipientEmail || '').trim().toLowerCase() // Ensure email is standardized
+                };
+            }
+            
+            // Add a function to validate and prepare placeholders before upload
+            function prepareAndValidatePlaceholders() {
+                // Normalize placeholder coordinates to ensure consistency
+                const normalizedPlaceholders = signaturePlaceholders.map(placeholder => {
+                    // Make sure we get a deep copy to avoid reference issues
+                    return {
+                        id: placeholder.id,
+                        page: parseInt(placeholder.page),
+                        x: parseFloat(placeholder.x),
+                        y: parseFloat(placeholder.y),
+                        width: parseFloat(placeholder.width),
+                        height: parseFloat(placeholder.height),
+                        recipientEmail: (placeholder.recipientEmail || '').trim().toLowerCase()
+                    };
+                });
+                
+                console.log("Prepared placeholders for upload:", normalizedPlaceholders);
+                
+                // Check if any placeholders have no recipient email
+                const placeholdersWithoutEmail = normalizedPlaceholders.filter(p => !p.recipientEmail);
+                if (placeholdersWithoutEmail.length > 0) {
+                    console.warn(`${placeholdersWithoutEmail.length} placeholders have no recipient email`);
+                }
+                
+                return normalizedPlaceholders;
+            }
+
+            // Update the uploadDocument function to use our preparation function
+            async function uploadDocument() {
+                try {
+                    // Check authentication
+                    const userId = localStorage.getItem('userId');
+                    if (!userId) {
+                        showError('You must be logged in to upload documents');
+                        return;
+                    }
+                    
+                    // Prepare and validate placeholders
+                    const normalizedPlaceholders = prepareAndValidatePlaceholders();
+                    
+                    // Show loading overlay
+                    loadingOverlay.classList.remove('hidden');
+                    
+                    // Create FormData
+                    const formData = new FormData();
+                    formData.append('file', selectedFile);
+                    formData.append('password', passwordInput.value);
+                    formData.append('user_id', userId);
+                    
+                    // Convert placeholders to JSON string and log it for debugging
+                    const placeholdersJson = JSON.stringify(normalizedPlaceholders);
+                    console.log("Placeholders JSON for upload:", placeholdersJson);
+                    formData.append('placeholders', placeholdersJson);
+                    
+                    // Show progress container
+                    uploadProgressContainer.classList.remove('hidden');
+                    
+                    // Simulate upload progress
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        progress += 5;
+                        if (progress > 90) {
+                            clearInterval(progressInterval);
+                            progress = 90;
+                        }
+                        uploadProgressBar.style.width = progress + '%';
+                    }, 300);
+                    
+                    // Upload file to server
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    clearInterval(progressInterval);
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Failed to upload document');
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Complete progress bar
+                    uploadProgressBar.style.width = '100%';
+                    uploadStatus.textContent = 'Upload complete';
+                    
+                    // Show success
+                    showSuccess('Document encrypted and uploaded successfully!');
+                    
+                    // Set links
+                    signingLink.value = `${window.location.origin}/sign/${data.document_id}`;
+                    viewLink.value = `${window.location.origin}/document/${data.document_id}`;
+                    
+                    // Show link sharing section
+                    linkSharingSection.classList.remove('hidden');
+                    
+                    // Hide loading overlay
+                    loadingOverlay.classList.add('hidden');
+                    
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    showError(error.message || 'Failed to upload document');
+                    
+                    // Hide loading overlay
+                    loadingOverlay.classList.add('hidden');
+                }
+            }
+
+            document.head.insertAdjacentHTML('beforeend', `
+            <style>
+            .signature-placeholder {
+                position: absolute;
+                background-color: rgba(52, 152, 219, 0.2);
+                border: 2px solid #3498db;
+                border-radius: 4px;
+                min-width: 150px;
+                min-height: 50px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                user-select: none;
+                z-index: 10;
+                cursor: move;
+            }
+            </style>
+            `);
+
+            // File input change event
+            fileInput.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    handleFileSelect(this.files[0]);
+                }
+            });
+            
+            // Drag and drop handling
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                dropArea.classList.add('border-blue-500', 'bg-blue-50');
+            }
+            
+            function unhighlight() {
+                dropArea.classList.remove('border-blue-500', 'bg-blue-50');
+            }
+            
+            dropArea.addEventListener('drop', function(e) {
+                const dt = e.dataTransfer;
+                const file = dt.files[0];
+                if (file) {
+                    handleFileSelect(file);
+                }
+            });
+            
+            // Remove file button
+            removeFileButton.addEventListener('click', function() {
+                selectedFile = null;
+                fileDetails.classList.add('hidden');
+                fileInput.value = '';
+                document.getElementById('pdf-viewer-section').classList.add('hidden');
+                signaturePlaceholders = [];
+            });
+            
+            // Password strength check
+            passwordInput.addEventListener('input', function() {
+                const password = this.value;
+                const strength = calculatePasswordStrength(password);
+                
+                passwordMeter.style.width = strength + '%';
+                
+                if (strength < 40) {
+                    passwordMeter.className = 'h-1 bg-red-500 transition-all duration-300';
+                    passwordStrengthText.textContent = 'Weak password';
+                    passwordStrengthText.className = 'text-xs text-red-500 mt-1';
+                } else if (strength < 80) {
+                    passwordMeter.className = 'h-1 bg-yellow-500 transition-all duration-300';
+                    passwordStrengthText.textContent = 'Medium strength password';
+                    passwordStrengthText.className = 'text-xs text-yellow-500 mt-1';
+                } else {
+                    passwordMeter.className = 'h-1 bg-green-500 transition-all duration-300';
+                    passwordStrengthText.textContent = 'Strong password';
+                    passwordStrengthText.className = 'text-xs text-green-500 mt-1';
+                }
+            });
+            
+            function calculatePasswordStrength(password) {
+                let strength = 0;
+                
+                if (password.length >= 8) strength += 25;
+                if (password.match(/[a-z]/)) strength += 10;
+                if (password.match(/[A-Z]/)) strength += 20;
+                if (password.match(/[0-9]/)) strength += 20;
+                if (password.match(/[^a-zA-Z0-9]/)) strength += 25;
+                
+                return strength;
+            }
+            
+            // Encrypt button click
+            encryptButton.addEventListener('click', function() {
+                if (!selectedFile) {
+                    showError('Please select a file to upload');
+                    return;
+                }
+                
+                const password = passwordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
+                
+                if (!password) {
+                    showError('Please enter a password');
+                    return;
+                }
+                
+                if (password.length < 6) {
+                    showError('Password must be at least 6 characters long');
+                    return;
+                }
+                
+                if (password !== confirmPassword) {
+                    showError('Passwords do not match');
+                    return;
+                }
+                
+                uploadDocument();
+            });
+            
+            // Copy link buttons
+            copyLinkButton.addEventListener('click', function() {
+                copyToClipboard(signingLink.value);
+                showSuccess('Signing link copied to clipboard');
+            });
+            
+            copyViewButton.addEventListener('click', function() {
+                copyToClipboard(viewLink.value);
+                showSuccess('View link copied to clipboard');
+            });
+            
+            function copyToClipboard(text) {
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        console.log('Text copied to clipboard');
+                    })
+                    .catch(err => {
+                        console.error('Error copying text: ', err);
+                        
+                        // Fallback for older browsers
+                        const textArea = document.createElement('textarea');
+                        textArea.value = text;
+                        document.body.appendChild(textArea);
+                        textArea.focus();
+                        textArea.select();
+                        
+                        try {
+                            document.execCommand('copy');
+                        } catch (err) {
+                            console.error('Fallback: Unable to copy', err);
+                        }
+                        
+                        document.body.removeChild(textArea);
+                    });
+            }
+            
+            // New document button
+            newDocumentButton.addEventListener('click', function() {
+                // Clear form
+                selectedFile = null;
+                fileInput.value = '';
+                passwordInput.value = '';
+                confirmPasswordInput.value = '';
+                fileDetails.classList.add('hidden');
+                linkSharingSection.classList.add('hidden');
+                document.getElementById('pdf-viewer-section').classList.add('hidden');
+                signaturePlaceholders = [];
+                
+                // Reset password strength
+                passwordMeter.style.width = '0%';
+                passwordMeter.className = 'h-1 bg-gray-400 transition-all duration-300';
+                passwordStrengthText.textContent = '';
+            });
+            
+            // Cancel button
+            cancelButton.addEventListener('click', function() {
+                if (confirm('Are you sure you want to cancel? All changes will be lost.')) {
+                    window.location.href = '/dashboard';
+                }
+            });
+            
+            // Check authentication
+            function checkAuth() {
+                // Get user from Firebase Auth
+                const user = auth.currentUser || { uid: localStorage.getItem('userId') };
+                
+                if (!user || !user.uid) {
+                    // Not logged in, redirect to login page
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                // Set user name in header if available
+                if (user.displayName) {
+                    userName.textContent = user.displayName;
+                } else {
+                    userName.textContent = localStorage.getItem('userName') || 'User';
+                }
+                
+                // Check verification status in Firestore directly
+                db.collection('users').doc(user.uid).get().then((doc) => {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        // Check both verified and verification_completed
+                        const isVerified = userData.verified === true && userData.verification_completed === true;
+                        
+                        if (isVerified) {
+                            // Store verification status in localStorage for UI purposes only
+                            localStorage.setItem('isVerified', 'true');
+                            
+                            // User is verified, continue with dashboard
+                            if (window.location.pathname === '/verification' || 
+                                window.location.pathname === '/selfie_verification') {
+                                // If on verification pages but already verified, redirect to dashboard
+                                window.location.href = '/dashboard';
+                                return;
+                            }
+                            
+                            // Store the user's email in localStorage
+                            if (userData.email) {
+                                localStorage.setItem('userEmail', userData.email.toLowerCase());
+                            }
+                        } else {
+                            // User is not verified, redirect to verification
+                            localStorage.setItem('isVerified', 'false');
+                            
+                            // Only redirect if not already on a verification page
+                            if (window.location.pathname !== '/verification' && 
+                                window.location.pathname !== '/selfie_verification') {
+                                window.location.href = '/verification';
+                                return;
+                            }
+                        }
+                    } else {
+                        // User document not found, redirect to verification
+                        localStorage.setItem('isVerified', 'false');
+                        window.location.href = '/verification';
+                    }
+                }).catch((error) => {
+                    console.error("Error checking verification status:", error);
+                    // On error, assume not verified (safer approach)
+                    localStorage.setItem('isVerified', 'false');
+                    showError("Failed to load user data. Please try again.");
+                });
+            }
+            
+            // Logout function
+            async function logout() {
+                try {
+                    await auth.signOut();
+                    
+                    // Clear local storage
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('userToken');
+                    localStorage.removeItem('userEmail');
+                    localStorage.removeItem('userName');
+                    
+                    // Redirect to login page
+                    window.location.href = '/login';
+                } catch (error) {
+                    showError('Failed to log out: ' + error.message);
+                }
+            }
+            
+            // Logout button event listener
+            logoutButton.addEventListener('click', logout);
+            
+            // Check authentication on page load
+            checkAuth();
+        });
+    </script>
+</body>
+</html>

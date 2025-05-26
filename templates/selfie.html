@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Selfie Verification</title>
+  <style>
+    /* Same styles as before, no changes needed */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f9f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 500px;
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 24px;
+      color: #2d2d2d;
+      margin-bottom: 20px;
+    }
+
+    p {
+      color: #666;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .video-container {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto 20px;
+      border: 2px solid #eee;
+      border-radius: 10px;
+      overflow: hidden;
+      background-color: #f9f9f9;
+    }
+
+    #video {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    #canvas {
+      display: none;
+    }
+
+    .button-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .button {
+      padding: 12px 20px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .button:hover {
+      background-color: #2980b9;
+    }
+
+    .button.secondary {
+      background-color: #95a5a6;
+    }
+
+    .button.secondary:hover {
+      background-color: #7f8c8d;
+    }
+
+    .status-message {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+    }
+
+    .status-success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status-error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .status-progress {
+      background-color: #e2f3f7;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+      border: 3px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top-color: #3498db;
+      animation: spin 1s ease-in-out infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .consent-message {
+      font-size: 14px;
+      color: #888;
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 5px;
+      background-color: #f8f9fa;
+      text-align: left;
+    }
+
+    .preview-container {
+      margin: 20px auto;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 3px solid #eee;
+      display: none;
+    }
+
+    #preview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .face-guide {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 240px;
+      height: 240px;
+      border: 2px dashed rgba(52, 152, 219, 0.5);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .video-wrapper {
+      position: relative;
+    }
+  </style>
+  
+  <!-- Add hidden field for redirect URL from template -->
+  <input type="hidden" id="redirect-url" value="{{ redirect_url }}">
+</head>
+<body>
+  <div class="container">
+    <h1>Selfie Verification</h1>
+    <p>Hello, {{ person_name }}! Please take a selfie to verify your identity and confirm you are a real person.</p>
+    
+    <div class="consent-message">
+      <strong>Privacy Notice:</strong> Your selfie will only be used for verification purposes to ensure that a real person is present. The image will not be stored permanently after verification is complete.
+    </div>
+
+    <div class="video-container">
+      <div class="video-wrapper">
+        <video id="video" autoplay playsinline></video>
+        <div class="face-guide"></div>
+      </div>
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="preview-container">
+      <img id="preview" src="" alt="Selfie preview">
+    </div>
+
+    <div class="button-container">
+      <button id="capture-btn" class="button">Take Selfie</button>
+      <button id="retake-btn" class="button secondary" style="display: none;">Retake</button>
+      <button id="verify-btn" class="button" style="display: none;">Verify Identity</button>
+    </div>
+
+    <div id="status-message" class="status-message"></div>
+  </div>
+
+  <script>
+    // DOM elements
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const preview = document.getElementById('preview');
+    const captureBtn = document.getElementById('capture-btn');
+    const retakeBtn = document.getElementById('retake-btn');
+    const verifyBtn = document.getElementById('verify-btn');
+    const statusMessage = document.getElementById('status-message');
+    const previewContainer = document.querySelector('.preview-container');
+    const videoContainer = document.querySelector('.video-container');
+    const redirectUrlField = document.getElementById('redirect-url');
+
+    // Global variables
+    let stream = null;
+    let selfieImage = null;
+
+    // Check for and store redirect URL from multiple sources
+    function handleRedirectUrl() {
+      // Priority 1: URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectParam = urlParams.get('redirect');
+      
+      // Priority 2: Hidden field from template
+      const redirectFieldValue = redirectUrlField ? redirectUrlField.value : '';
+      
+      // Priority 3: Stored in session (if we got here from verify_identity)
+      // Note: We check localStorage because session data might not be accessible in JavaScript
+      
+      // Use the first available source
+      const redirectUrl = redirectParam || redirectFieldValue || localStorage.getItem('redirectAfterVerification');
+      
+      // Store in localStorage if we have a valid URL
+      if (redirectUrl && redirectUrl.trim() !== '') {
+        localStorage.setItem('redirectAfterVerification', redirectUrl);
+        console.log('Stored redirect URL for after verification:', redirectUrl);
+      }
+    }
+    
+    // Always run this function to check for redirect URLs
+    handleRedirectUrl();
+
+    // Helper function to determine final destination after verification
+    function determineRedirectDestination(serverRedirect) {
+      // Get stored redirect from localStorage
+      const storedRedirect = localStorage.getItem('redirectAfterVerification');
+      
+      // Priority order:
+      // 1. Server-provided redirect (from API response)
+      // 2. Stored redirect URL (from localStorage)
+      // 3. Default dashboard
+      
+      // The server might have processed the redirect URL, so we trust it first
+      let finalDestination = serverRedirect || storedRedirect || '/dashboard';
+      
+      // If we used the stored redirect, clean it up
+      if (storedRedirect && !serverRedirect) {
+        console.log(`Using stored redirect: ${storedRedirect}`);
+      } else if (serverRedirect) {
+        console.log(`Using server-provided redirect: ${serverRedirect}`);
+      }
+      
+      // Clean up the redirect URL from localStorage
+      localStorage.removeItem('redirectAfterVerification');
+      
+      return finalDestination;
+    }
+
+    // Main page initialization
+    window.addEventListener('load', function() {
+        // Ensure the user came from the ID verification step
+        if (!localStorage.getItem('userId')) {
+            // Not logged in, redirect to login
+            const redirectUrl = localStorage.getItem('redirectAfterVerification');
+            if (redirectUrl) {
+                window.location.href = `/login?redirect=${encodeURIComponent(redirectUrl)}`;
+            } else {
+                window.location.href = '/login';
+            }
+            return;
+        }
+        
+        // Get userId
+        const userId = localStorage.getItem('userId');
+        
+        // Check verification status directly from Firestore if available 
+        // (assuming Firestore/Firebase is initialized elsewhere)
+        if (typeof db !== 'undefined') {
+            db.collection('users').doc(userId).get().then((doc) => {
+                if (doc.exists) {
+                    const userData = doc.data();
+                    const isVerified = userData.verified === true && userData.verification_completed === true;
+                    
+                    if (isVerified) {
+                        // User is already verified, determine where to redirect
+                        const destination = determineRedirectDestination();
+                        window.location.href = destination;
+                        return;
+                    }
+                    
+                    // Continue with camera initialization if not verified
+                    initCamera();
+                } else {
+                    // User document not found, continue with camera initialization
+                    initCamera();
+                }
+            }).catch((error) => {
+                console.error("Error checking verification status:", error);
+                // On error, continue with camera initialization
+                initCamera();
+            });
+        } else {
+            // If Firestore not available, just initialize camera
+            initCamera();
+        }
+    });
+    
+    // Initialize camera
+    async function initCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }, 
+          audio: false 
+        });
+        
+        video.srcObject = stream;
+        
+        showStatus('Camera initialized. Please center your face and take a selfie.', 'status-progress');
+        
+      } catch (err) {
+        console.error('Error accessing camera:', err);
+        showStatus('Could not access camera. Please ensure you have granted camera permissions and try again.', 'status-error');
+      }
+    }
+
+    // Show status message with appropriate styling
+    function showStatus(message, className) {
+      statusMessage.textContent = message;
+      statusMessage.className = 'status-message';
+      statusMessage.classList.add(className);
+      statusMessage.style.display = 'block';
+    }
+
+    // Show loading status with spinner
+    function showLoading(message) {
+      statusMessage.innerHTML = `<div class="loading-spinner"></div> ${message}`;
+      statusMessage.className = 'status-message status-progress';
+      statusMessage.style.display = 'block';
+    }
+
+    // Capture selfie
+    function captureSelfie() {
+      const context = canvas.getContext('2d');
+      
+      // Set canvas dimensions to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw the video frame to the canvas
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Get the image data as base64 string
+      selfieImage = canvas.toDataURL('image/jpeg');
+      
+      // Show preview
+      preview.src = selfieImage;
+      previewContainer.style.display = 'block';
+      videoContainer.style.display = 'none';
+      
+      // Show/hide appropriate buttons
+      captureBtn.style.display = 'none';
+      retakeBtn.style.display = 'block';
+      verifyBtn.style.display = 'block';
+      
+      showStatus('Selfie captured! Click "Verify Identity" to continue.', 'status-progress');
+    }
+
+    // Reset the capture process
+    function resetCapture() {
+      // Hide preview, show video
+      previewContainer.style.display = 'none';
+      videoContainer.style.display = 'block';
+      
+      // Reset buttons
+      captureBtn.style.display = 'block';
+      retakeBtn.style.display = 'none';
+      verifyBtn.style.display = 'none';
+      
+      // Clear status
+      showStatus('Please center your face and take a selfie.', 'status-progress');
+    }
+
+    // Verify the selfie with the server
+    async function verifySelfie() {
+        if (!selfieImage) {
+            showStatus('No selfie captured. Please take a selfie first.', 'status-error');
+            return;
+        }
+        
+        showLoading('Verifying your identity...');
+        
+        try {
+            // Get user ID from localStorage
+            const userId = localStorage.getItem('userId');
+            
+            // Get redirect URL from localStorage if available
+            const redirectUrl = localStorage.getItem('redirectAfterVerification');
+            
+            // Create request body with all needed data
+            const requestBody = { 
+                image: selfieImage,
+                userId: userId  // Send user ID to backend
+            };
+            
+            // Add redirect URL if available
+            if (redirectUrl) {
+                console.log("Including redirect URL in verification request:", redirectUrl);
+                requestBody.redirectUrl = redirectUrl;
+            } else {
+                console.log("No redirect URL found to include in request");
+            }
+            
+            const response = await fetch('/verify_selfie', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Mark verification as complete in localStorage for persistence
+                localStorage.setItem('isVerified', 'true');
+                
+                // Determine where to redirect
+                const finalDestination = determineRedirectDestination(result.redirect);
+                
+                // Show success message with destination
+                showStatus(`Verification successful! Redirecting to ${finalDestination.split('/').pop()}...`, 'status-success');
+                
+                // Redirect after a short delay
+                setTimeout(() => {
+                    window.location.href = finalDestination;
+                }, 1500);
+            } else {
+                showStatus(`Verification failed: ${result.message}. Please try again.`, 'status-error');
+                resetCapture();
+            }
+        } catch (error) {
+            console.error('Error during verification:', error);
+            showStatus('An error occurred during verification. Please try again.', 'status-error');
+        }
+    }
+
+    // Stop the video stream
+    function stopStream() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+    }
+
+    // Event listeners
+    captureBtn.addEventListener('click', captureSelfie);
+    retakeBtn.addEventListener('click', resetCapture);
+    verifyBtn.addEventListener('click', verifySelfie);
+
+    // Clean up when page is closed or navigated away from
+    window.addEventListener('beforeunload', stopStream);
+  </script>
+</body>
+</html>

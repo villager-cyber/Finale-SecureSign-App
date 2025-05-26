@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Identity Verification</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f9f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .form-container {
+            width: 500px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            text-align: center;
+        }
+
+        .info-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #555;
+            text-align: left;
+        }
+        
+        .info-box h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .verify-btn {
+            margin-top: 30px;
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+            padding: 12px 40px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            width: 100%;
+        }
+
+        .verify-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .notification {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .success-notification {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error-notification {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+    
+    <script>
+        // Function to extract and store redirect URL from different sources
+        function handleRedirectUrl() {
+            // Check URL parameters first
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectParam = urlParams.get('redirect');
+            
+            // Check for template variable (will be filled by Flask)
+            const redirectField = document.getElementById('redirect-url');
+            const redirectFieldValue = redirectField ? redirectField.value : '';
+            
+            // Use the first available redirect URL
+            const redirectUrl = redirectParam || redirectFieldValue || localStorage.getItem('redirectAfterVerification');
+            
+            // Store in localStorage if it exists and is not empty
+            if (redirectUrl && redirectUrl.trim() !== '') {
+                localStorage.setItem('redirectAfterVerification', redirectUrl);
+                console.log('Stored redirect URL for after verification:', redirectUrl);
+            }
+        }
+        
+        // Run when DOM is loaded
+        document.addEventListener('DOMContentLoaded', handleRedirectUrl);
+    </script>
+</head>
+<body>
+    <div class="form-container">
+        <h2>Identity Verification</h2>
+        
+        <div class="info-box">
+            <h3>Welcome to SecureSign!</h3>
+            <p>To ensure the security of our platform and protect your identity, we need to verify your identity. Please enter your official name and National ID (NIK) number.</p>
+            <p>Your data will be processed securely and will only be used for verification purposes.</p>
+        </div>
+
+        <form id="verification-form" method="post" action="/verify_identity">
+            <div class="form-group">
+                <label for="nama">Full Name (as on ID card)</label>
+                <input type="text" id="nama" name="nama" required placeholder="Enter your full name">
+            </div>
+
+            <div class="form-group">
+                <label for="nik">NIK (National ID Number)</label>
+                <input type="text" id="nik" name="nik" required placeholder="Enter your NIK number" minlength="16" maxlength="16" pattern="[0-9]+" title="NIK must be 16 digits">
+            </div>
+
+            <input type="hidden" id="userId" name="userId">
+            <!-- Add hidden input for redirect URL from template -->
+            <input type="hidden" id="redirect-url" name="redirectUrl" value="{{ redirect_url }}">
+
+            <button type="submit" class="verify-btn">VERIFY IDENTITY</button>
+        </form>
+
+        <div id="notification" class="notification"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set user ID from localStorage if available
+            const userId = localStorage.getItem('userId');
+            if (userId) {
+                document.getElementById('userId').value = userId;
+            } else {
+                // If no user ID, redirect to login with redirect parameter
+                const redirectUrl = localStorage.getItem('redirectAfterVerification');
+                if (redirectUrl) {
+                    window.location.href = `/login?redirect=${encodeURIComponent(redirectUrl)}`;
+                } else {
+                    window.location.href = '/login';
+                }
+            }
+
+            // Form submission with AJAX to avoid page reload
+            document.getElementById('verification-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const nama = document.getElementById('nama').value;
+                const nik = document.getElementById('nik').value;
+                const userId = document.getElementById('userId').value;
+                
+                // Get redirect URL from localStorage
+                const redirectUrl = localStorage.getItem('redirectAfterVerification');
+                
+                // Create the request body with redirect URL if available
+                const requestBody = { nama, nik, userId };
+                if (redirectUrl) {
+                    requestBody.redirectUrl = redirectUrl;
+                    console.log("Including redirect URL in verification request:", redirectUrl);
+                }
+                
+                fetch('/verify_identity', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const notification = document.getElementById('notification');
+                    
+                    if (data.success) {
+                        // Show success message
+                        notification.textContent = "Identity verified successfully!";
+                        notification.className = "notification success-notification";
+                        notification.style.display = "block";
+                        
+                        // Redirect to selfie verification after a short delay
+                        // Pass the redirect URL as a query parameter
+                        setTimeout(() => {
+                            if (redirectUrl) {
+                                window.location.href = `/selfie_verification?redirect=${encodeURIComponent(redirectUrl)}`;
+                            } else {
+                                window.location.href = '/selfie_verification';
+                            }
+                        }, 1500);
+                    } else {
+                        // Show error message
+                        notification.textContent = data.message || "Verification failed. Please check your information.";
+                        notification.className = "notification error-notification";
+                        notification.style.display = "block";
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    const notification = document.getElementById('notification');
+                    notification.textContent = "An error occurred. Please try again.";
+                    notification.className = "notification error-notification";
+                    notification.style.display = "block";
+                });
+            });
+        });
+    </script>
+</body>
+</html>

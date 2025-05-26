@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checking Authentication...</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <p>Checking your authorization...</p>
+    
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWf71MsT4AEljGQLBwNkbvayZscOw383Y",
+            authDomain: "digitalsignapplication.firebaseapp.com",
+            projectId: "digitalsignapplication",
+            storageBucket: "digitalsignapplication.firebasestorage.app",
+            messagingSenderId: "437036538199",
+            appId: "1:437036538199:web:cbdec67966ed7d23308612"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        // Get user ID from localStorage
+        const userId = localStorage.getItem('userId');
+        
+        if (!userId) {
+            // No user ID, redirect to login
+            window.location.href = '/login';
+        } else {
+            // Check verification status directly from Firestore
+            db.collection('users').doc(userId).get().then((doc) => {
+                if (doc.exists) {
+                    const userData = doc.data();
+                    const isVerified = userData.verified === true && userData.verification_completed === true;
+                    
+                    if (isVerified) {
+                        // User is verified, redirect to dashboard
+                        localStorage.setItem('isVerified', 'true');
+                        window.location.href = '/dashboard?user_id=' + userId;
+                    } else {
+                        // User needs verification
+                        localStorage.setItem('isVerified', 'false');
+                        window.location.href = '{{ redirect_url }}';
+                    }
+                } else {
+                    // User document not found, redirect to verification
+                    localStorage.setItem('isVerified', 'false');
+                    window.location.href = '/verification';
+                }
+            }).catch((error) => {
+                console.error("Error checking verification status:", error);
+                // On error, redirect to verification
+                localStorage.setItem('isVerified', 'false');
+                window.location.href = '/verification';
+            });
+        }
+    </script>
+</body>
+</html>

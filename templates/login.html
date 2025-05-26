@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecureSign - Login</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+</head>
+
+<body class="bg-gray-100">
+  <div class="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+      <div class="flex justify-center">
+        <div class="text-3xl font-bold text-center text-gray-900 flex items-center">
+          <span class="text-4xl mr-2">🔒</span> SecureSign
+        </div>
+      </div>
+      <h2 class="mt-6 text-center text-3xl font-bold text-gray-900">
+        Sign in to your account
+      </h2>
+      <p id="redirect-message" class="mt-2 text-center text-sm text-blue-600 hidden">
+        Sign in to access the document you were invited to sign
+      </p>
+    </div>
+
+    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+      <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div id="error-container" class="rounded-md bg-red-50 p-4 mb-4 hidden">
+          <div id="error-message" class="text-sm text-red-700"></div>
+        </div>
+
+        <form id="login-form" class="space-y-6">
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700">
+              Email address
+            </label>
+            <div class="mt-1">
+              <input id="email" name="email" type="email" autocomplete="email" required
+                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
+            </div>
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <div class="mt-1">
+              <input id="password" name="password" type="password" autocomplete="current-password" required
+                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div class="text-sm">
+              <a href="/forgot-password" class="font-medium text-blue-600 hover:text-blue-500">
+                Forgot your password?
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <button type="submit" id="login-button"
+              class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              Sign in
+            </button>
+          </div>
+        </form>
+
+        <div class="mt-6">
+          <div class="relative">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-gray-300"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+              <span class="px-2 bg-white text-gray-500">Or continue with</span>
+            </div>
+          </div>
+
+          <div class="mt-6">
+            <button id="google-login"
+              class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              <i class="fab fa-google h-5 w-5 mr-2" style="color: #4285F4;"></i>
+              Sign in with Google
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-6 text-center">
+          <p class="text-sm">
+            Don't have an account?
+            <a href="#" id="signup-link" class="font-medium text-blue-600 hover:text-blue-500">Sign up</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBWf71MsT4AEljGQLBwNkbvayZscOw383Y",
+      authDomain: "digitalsignapplication.firebaseapp.com",
+      projectId: "digitalsignapplication",
+      storageBucket: "digitalsignapplication.firebasestorage.app",
+      messagingSenderId: "437036538199",
+      appId: "1:437036538199:web:cbdec67966ed7d23308612"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const errorContainer = document.getElementById('error-container');
+      const errorMessage = document.getElementById('error-message');
+      const loginForm = document.getElementById('login-form');
+      const loginButton = document.getElementById('login-button');
+      const googleLoginButton = document.getElementById('google-login');
+      const redirectMessage = document.getElementById('redirect-message');
+      const signupLink = document.getElementById('signup-link');
+
+      // Get redirect URL from query parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get('redirect');
+      
+      // Display special message if coming from a document signing link
+      if (redirectUrl && redirectUrl.includes('/sign/')) {
+        redirectMessage.classList.remove('hidden');
+      }
+      
+      // Update signup link to include redirect
+      if (redirectUrl) {
+        signupLink.href = `/signup?redirect=${encodeURIComponent(redirectUrl)}`;
+      } else {
+        signupLink.href = '/signup';
+      }
+
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorContainer.classList.remove('hidden');
+      }
+
+      function hideError() {
+        errorContainer.classList.add('hidden');
+      }
+
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideError();
+
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        if (!email || !password) {
+          showError('Please fill in all fields');
+          return;
+        }
+
+        loginButton.disabled = true;
+        loginButton.textContent = 'Signing in...';
+
+        try {
+          const userCredential = await auth.signInWithEmailAndPassword(email, password);
+          const user = userCredential.user;
+
+          localStorage.setItem('userId', user.uid);
+          localStorage.setItem('userEmail', user.email);
+          localStorage.setItem('userName', user.displayName || 'User');
+
+          const userDoc = await db.collection('users').doc(user.uid).get();
+          const userData = userDoc.data();
+          const isVerified = userDoc.exists && userData.verified === true && userData.verification_completed === true;
+
+          localStorage.setItem('isVerified', isVerified ? 'true' : 'false');
+          
+          // Handle redirect after login
+          if (redirectUrl) {
+            // For document signing, redirect immediately if verified
+            if (isVerified) {
+              window.location.href = redirectUrl;
+            } else {
+              // Store redirect URL for after verification
+              localStorage.setItem('redirectAfterVerification', redirectUrl);
+              window.location.href = '/verification';
+            }
+          } else {
+            // Normal flow - go to dashboard or verification
+            window.location.href = isVerified ? '/dashboard' : '/verification';
+          }
+        } catch (error) {
+          showError(error.message || 'Failed to sign in');
+        } finally {
+          loginButton.disabled = false;
+          loginButton.textContent = 'Sign in';
+        }
+      });
+
+      googleLoginButton.addEventListener('click', async () => {
+        hideError();
+
+        try {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          const result = await auth.signInWithPopup(provider);
+          const user = result.user;
+
+          localStorage.setItem('userId', user.uid);
+          localStorage.setItem('userEmail', user.email);
+          localStorage.setItem('userName', user.displayName || 'User');
+
+          // Always create/update user document with all required fields
+          try {
+            await db.collection('users').doc(user.uid).set({
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+              createdAt: new Date().toISOString(),
+              verified: false,
+              verification_completed: false,
+              verification_started: false,
+              role: "user"
+            }, { merge: true }); // Use merge: true to update existing documents without overwriting fields
+            console.log("User document created/updated successfully:", user.uid);
+          } catch (dbError) {
+            console.error("Error updating user document:", dbError);
+            showError(`Authentication successful but database update failed: ${dbError.message}`);
+            return;
+          }
+
+          // Check verification status
+          const latestDoc = await db.collection('users').doc(user.uid).get();
+          if (latestDoc.exists) {
+            const userData = latestDoc.data();
+            const isVerified = userData.verified === true && userData.verification_completed === true;
+            localStorage.setItem('isVerified', isVerified ? 'true' : 'false');
+            
+            // Handle redirect after login with Google
+            if (redirectUrl) {
+              // For document signing, redirect immediately if verified
+              if (isVerified) {
+                window.location.href = redirectUrl;
+              } else {
+                // Store redirect URL for after verification
+                localStorage.setItem('redirectAfterVerification', redirectUrl);
+                window.location.href = '/verification';
+              }
+            } else {
+              // Normal flow - go to dashboard or verification
+              window.location.href = isVerified ? '/dashboard' : '/verification';
+            }
+          } else {
+            // If document still doesn't exist after our attempt to create it, there's a deeper issue
+            showError("Failed to create or retrieve user profile. Please try again.");
+          }
+        } catch (error) {
+          showError(error.message || 'Failed to sign in with Google');
+        }
+      });
+
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          // If user is already authenticated, don't automatically redirect
+          // Let the form submission or button click handlers handle the redirects
+          console.log("User is already authenticated:", user.email);
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>

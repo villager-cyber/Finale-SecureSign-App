@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureSign - My Documents</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation Header -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/dashboard" class="text-2xl font-bold text-gray-800 flex items-center">
+                            <span class="text-3xl mr-2">🔒</span> SecureSign
+                        </a>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/dashboard" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Dashboard
+                        </a>
+                        <a href="/documents" class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            My Documents
+                        </a>
+                        <a href="/verify" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Verify Document
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="ml-4 flex items-center md:ml-6">
+                        <span id="user-name" class="text-gray-500 mr-4">
+                            Loading...
+                        </span>
+                        <button
+                            id="logout-button"
+                            class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-900">My Documents</h1>
+            <button
+                id="upload-button"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+                <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Upload Document
+            </button>
+        </div>
+        
+        <!-- Error Message -->
+        <div id="error-container" class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 hidden">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p id="error-message" class="text-sm text-red-700"></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab navigation -->
+        <div class="mb-6 border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8">
+                <button
+                    id="tab-all"
+                    class="border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                >
+                    All Documents
+                </button>
+                <button
+                    id="tab-awaiting"
+                    class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                >
+                    Awaiting Signatures
+                </button>
+                <button
+                    id="tab-completed"
+                    class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                >
+                    Completed
+                </button>
+                <button
+                    id="tab-mine"
+                    class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                >
+                    Uploaded by Me
+                </button>
+            </nav>
+        </div>
+        
+        <!-- Loading State -->
+        <div id="loading-state" class="flex justify-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+        
+        <!-- Empty State -->
+        <div id="empty-state" class="bg-white shadow rounded-lg p-8 text-center hidden">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No documents</h3>
+            <p class="mt-1 text-sm text-gray-500" id="empty-message">
+                You don't have any documents yet.
+            </p>
+            <div class="mt-6">
+                <button
+                    id="empty-upload-button"
+                    class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Upload Document
+                </button>
+            </div>
+        </div>
+        
+        <!-- Document List -->
+        <div id="document-list" class="bg-white shadow overflow-hidden sm:rounded-md hidden">
+            <ul class="divide-y divide-gray-200" id="documents-container">
+                <!-- Document items will be added here dynamically -->
+            </ul>
+        </div>
+        
+        <!-- Delete Confirmation Modal -->
+        <div id="delete-modal" class="fixed inset-0 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <!-- Background overlay -->
+                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+
+                <!-- Modal panel -->
+                <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                                <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                                    Delete Document
+                                </h3>
+                                <div class="mt-2">
+                                    <p class="text-sm text-gray-500">
+                                        Are you sure you want to delete this document? This action cannot be undone.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="button" id="confirm-delete" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            Delete
+                        </button>
+                        <button type="button" id="cancel-delete" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+            <div id="loading-text" class="text-gray-700 font-medium">Processing...</div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWf71MsT4AEljGQLBwNkbvayZscOw383Y",
+            authDomain: "digitalsignapplication.firebaseapp.com",
+            projectId: "digitalsignapplication",
+            storageBucket: "digitalsignapplication.firebasestorage.app",
+            messagingSenderId: "437036538199",
+            appId: "1:437036538199:web:cbdec67966ed7d23308612"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const userName = document.getElementById('user-name');
+            const logoutButton = document.getElementById('logout-button');
+            const uploadButton = document.getElementById('upload-button');
+            const emptyUploadButton = document.getElementById('empty-upload-button');
+            const tabAll = document.getElementById('tab-all');
+            const tabAwaiting = document.getElementById('tab-awaiting');
+            const tabCompleted = document.getElementById('tab-completed');
+            const tabMine = document.getElementById('tab-mine');
+            const loadingState = document.getElementById('loading-state');
+            const emptyState = document.getElementById('empty-state');
+            const emptyMessage = document.getElementById('empty-message');
+            const documentList = document.getElementById('document-list');
+            const documentsContainer = document.getElementById('documents-container');
+            const deleteModal = document.getElementById('delete-modal');
+            const confirmDelete = document.getElementById('confirm-delete');
+            const cancelDelete = document.getElementById('cancel-delete');
+            const errorContainer = document.getElementById('error-container');
+            const errorMessage = document.getElementById('error-message');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+
+            // State variables
+            let documents = [];
+            let selectedTab = 'all';
+            let deleteDocumentId = null;
+
+            // Show error message
+            function showError(message) {
+                console.error("Error:", message); // Add debug logging
+                errorMessage.textContent = message;
+                errorContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    errorContainer.classList.add('hidden');
+                }, 5000);
+            }
+
+            // Format date
+            function formatDate(dateString) {
+                if (!dateString) return 'Unknown date';
+
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString();
+                } catch (e) {
+                    console.error("Date format error:", e);
+                    return 'Invalid date';
+                }
+            }
+
+            // Get file icon based on file type
+            function getFileIcon(fileType) {
+                if (!fileType) {
+                    return '<i class="fas fa-file text-gray-500"></i>';
+                }
+
+                const fileTypeLower = fileType.toLowerCase();
+
+                if (fileTypeLower.includes('pdf')) {
+                    return '<i class="fas fa-file-pdf text-red-500"></i>';
+                } else if (fileTypeLower.includes('word') || fileTypeLower.includes('doc')) {
+                    return '<i class="fas fa-file-word text-blue-500"></i>';
+                } else if (fileTypeLower.includes('excel') || fileTypeLower.includes('sheet')) {
+                    return '<i class="fas fa-file-excel text-green-500"></i>';
+                } else if (fileTypeLower.includes('image')) {
+                    return '<i class="fas fa-file-image text-purple-500"></i>';
+                } else {
+                    return '<i class="fas fa-file text-gray-500"></i>';
+                }
+            }
+
+            // Get status badge
+            function getStatusBadge(status) {
+                if (!status) return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Unknown</span>';
+
+                const statusLower = status.toLowerCase();
+
+                switch (statusLower) {
+                    case 'unsigned':
+                        return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Unsigned</span>';
+                    case 'pending_signature':
+                    case 'pending_signatures':
+                    case 'pending':
+                        return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Awaiting Signatures</span>';
+                    case 'partially_signed':
+                        return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Partially Signed</span>';
+                    case 'fully_signed':
+                    case 'signed':
+                        return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Completed</span>';
+                    default:
+                        return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">' + status + '</span>';
+                }
+            }
+
+            // Filter documents based on selected tab
+            function filterDocuments() {
+                console.log("Filtering documents based on tab:", selectedTab);
+                console.log("Documents before filtering:", documents);
+
+                let filtered = [];
+
+                switch (selectedTab) {
+                    case 'awaiting':
+                        filtered = documents.filter(doc => {
+                            const status = doc.status ? doc.status.toLowerCase() : '';
+                            return status === 'pending_signature' || 
+                                   status === 'pending_signatures' || 
+                                   status === 'pending' || 
+                                   status === 'partially_signed';
+                        });
+                        break;
+                    case 'completed':
+                        filtered = documents.filter(doc => {
+                            const status = doc.status ? doc.status.toLowerCase() : '';
+                            return status === 'fully_signed' || status === 'signed';
+                        });
+                        break;
+                    case 'mine':
+                        const userId = auth.currentUser ? auth.currentUser.uid : localStorage.getItem('userId');
+                        filtered = documents.filter(doc => 
+                            doc.uploadedBy === userId || doc.uploaded_by === userId
+                        );
+                        break;
+                    default:
+                        filtered = documents;
+                }
+
+                console.log("Documents after filtering:", filtered);
+                return filtered;
+            }
+
+            // Render documents list
+            function renderDocuments() {
+                const filteredDocs = filterDocuments();
+
+                if (filteredDocs.length === 0) {
+                    console.log("No documents to display in tab:", selectedTab);
+                    // Show empty state
+                    loadingState.classList.add('hidden');
+                    documentList.classList.add('hidden');
+                    emptyState.classList.remove('hidden');
+
+                    // Update empty message based on selected tab
+                    switch (selectedTab) {
+                        case 'awaiting':
+                            emptyMessage.textContent = 'No documents awaiting signatures.';
+                            break;
+                        case 'completed':
+                            emptyMessage.textContent = 'No completed documents.';
+                            break;
+                        case 'mine':
+                            emptyMessage.textContent = 'You haven\'t uploaded any documents yet.';
+                            break;
+                        default:
+                            emptyMessage.textContent = 'You don\'t have any documents yet.';
+                    }
+
+                    return;
+                }
+
+                console.log("Rendering documents:", filteredDocs.length);
+
+                // Clear container
+                documentsContainer.innerHTML = '';
+
+                // Add document items
+                filteredDocs.forEach(doc => {
+                    const userId = auth.currentUser ? auth.currentUser.uid : localStorage.getItem('userId');
+                    // Check if user is document owner
+                    const isOwner = (doc.uploadedBy === userId) || (doc.uploaded_by === userId);
+
+                    let actionButtons = '';
+
+                    // Handle document status for action buttons
+                    const docStatus = doc.status ? doc.status.toLowerCase() : '';
+                    const docId = doc.documentId || doc.id;
+
+                    if (docStatus === 'unsigned' && isOwner) {
+                        actionButtons = `
+                            <button
+                                data-id="${docId}"
+                                class="sign-button inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                                Add Signatures
+                            </button>
+                        `;
+                    } else if (docStatus === 'pending_signature' || docStatus === 'pending_signatures' || 
+                               docStatus === 'pending' || docStatus === 'partially_signed') {
+                        actionButtons = `
+                            <a
+                                href="/sign/${docId}"
+                                class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                            >
+                                Sign Document
+                            </a>
+                        `;
+                    } else if (docStatus === 'fully_signed' || docStatus === 'signed') {
+                        actionButtons = `
+                            <a
+                                href="/document/${docId}"
+                                class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                            >
+                                View
+                            </a>
+                        `;
+                    } else {
+                        // Default action if no specific status match
+                        actionButtons = `
+                            <a
+                                href="/document/${docId}"
+                                class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                            >
+                                View
+                            </a>
+                        `;
+                    }
+
+                    // Add delete button if owner
+                    if (isOwner) {
+                        actionButtons += `
+                            <button
+                                data-id="${docId}"
+                                class="delete-button ml-2 inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            >
+                                Delete
+                            </button>
+                        `;
+                    }
+
+                    const li = document.createElement('li');
+
+                    li.innerHTML = `
+                        <div class="px-4 py-4 sm:px-6">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                                        ${getFileIcon(doc.fileType || doc.file_type)}
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="flex items-center">
+                                            <h3 class="text-sm font-medium text-gray-900">${doc.fileName || doc.original_filename || 'Untitled Document'}</h3>
+                                            <div class="ml-2">
+                                                ${getStatusBadge(doc.status)}
+                                            </div>
+                                        </div>
+                                        <div class="mt-1 text-xs text-gray-500">
+                                            ${isOwner ? 'Uploaded by you' : 'Shared with you'} · ${formatDate(doc.createdAt || doc.created_at)}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    ${actionButtons}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    documentsContainer.appendChild(li);
+                });
+
+                // Add event listeners to buttons
+                document.querySelectorAll('.sign-button').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const docId = this.getAttribute('data-id');
+                        window.location.href = `/sign/${docId}`;
+                    });
+                });
+
+                document.querySelectorAll('.delete-button').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const docId = this.getAttribute('data-id');
+                        deleteDocumentId = docId;
+                        deleteModal.classList.remove('hidden');
+                    });
+                });
+
+                // Show document list
+                loadingState.classList.add('hidden');
+                emptyState.classList.add('hidden');
+                documentList.classList.remove('hidden');
+            }
+
+            // Fetch documents - improved with better error handling and logging
+            async function fetchDocuments() {
+                console.log("Fetching documents...");
+                try {
+                    // Show loading
+                    loadingState.classList.remove('hidden');
+                    emptyState.classList.add('hidden');
+                    documentList.classList.add('hidden');
+
+                    // Get user ID - try auth.currentUser first, then localStorage
+                    const userId = auth.currentUser ? auth.currentUser.uid : localStorage.getItem('userId');
+
+                    if (!userId) {
+                        console.error("No user ID available");
+                        showError("User ID not found. Please log in again.");
+                        loadingState.classList.add('hidden');
+                        return;
+                    }
+
+                    console.log("Fetching documents for user:", userId);
+
+                    // First try to get documents from our API
+                    try {
+                        console.log("Fetching from API endpoint");
+                        const response = await fetch(`/api/documents/user/${userId}`);
+
+                        if (!response.ok) {
+                            console.log("API returned error status:", response.status);
+                            throw new Error(`API returned status ${response.status}`);
+                        }
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            console.log("API returned success with documents:", data.documents?.length || 0);
+                            documents = data.documents || [];
+                            renderDocuments();
+                            return;
+                        } else {
+                            console.log("API returned success=false");
+                            throw new Error(data.error || "API error");
+                        }
+                    } catch (apiError) {
+                        console.error('API error:', apiError);
+                        console.log("Falling back to Firestore query");
+
+                        // Fallback to direct Firestore queries
+                        try {
+                            // First query - using uploaded_by field
+                            const uploaderQuery = await db.collection('documents')
+                                .where('uploaded_by', '==', userId)
+                                .get();
+
+                            // Process results
+                            documents = [];
+                            console.log("Firestore returned documents:", uploaderQuery.size);
+
+                            uploaderQuery.forEach(doc => {
+                                console.log("Document data:", doc.id, doc.data());
+                                documents.push({
+                                    id: doc.id,
+                                    ...doc.data(),
+                                    isUploader: true
+                                });
+                            });
+
+                            // Second query - using uploadedBy field (alternative field name)
+                            const uploaderQuery2 = await db.collection('documents')
+                                .where('uploadedBy', '==', userId)
+                                .get();
+
+                            console.log("Second Firestore query returned documents:", uploaderQuery2.size);
+
+                            uploaderQuery2.forEach(doc => {
+                                // Check if we already have this document
+                                if (!documents.some(existing => existing.id === doc.id)) {
+                                    console.log("Additional document:", doc.id, doc.data());
+                                    documents.push({
+                                        id: doc.id,
+                                        ...doc.data(),
+                                        isUploader: true
+                                    });
+                                }
+                            });
+
+                            // If still no documents, try a third approach - get all documents and filter client-side
+                            if (documents.length === 0) {
+                                console.log("No documents found with specific queries, trying collection scan");
+                                const allDocsQuery = await db.collection('documents').limit(100).get();
+
+                                allDocsQuery.forEach(doc => {
+                                    const data = doc.data();
+                                    if (data.uploaded_by === userId || data.uploadedBy === userId) {
+                                        console.log("Found document by collection scan:", doc.id);
+                                        documents.push({
+                                            id: doc.id,
+                                            ...data,
+                                            isUploader: true
+                                        });
+                                    }
+                                });
+                            }
+
+                            renderDocuments();
+                        } catch (firestoreError) {
+                            console.error('Firestore error:', firestoreError);
+                            showError('Failed to load documents: ' + firestoreError.message);
+                            loadingState.classList.add('hidden');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching documents:', error);
+                    showError('Failed to load documents: ' + error.message);
+                    loadingState.classList.add('hidden');
+                }
+            }
+
+            // Delete document
+            async function deleteDocument(documentId) {
+                try {
+                    // Show loading overlay
+                    loadingOverlay.classList.remove('hidden');
+                    loadingText.textContent = 'Deleting document...';
+
+                    // First try our API
+                    try {
+                        const response = await fetch(`/api/documents/${documentId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'X-User-ID': localStorage.getItem('userId') // Add user ID header
+                            }
+                        });
+
+                        if (response.ok) {
+                            console.log("Document deleted via API");
+                            // Remove from local documents
+                            documents = documents.filter(doc => (doc.id !== documentId && doc.documentId !== documentId));
+                            renderDocuments();
+                            loadingOverlay.classList.add('hidden');
+                            return;
+                        } else {
+                            console.log("API delete failed, status:", response.status);
+                            throw new Error("API delete failed");
+                        }
+                    } catch (apiError) {
+                        console.error('API delete error:', apiError);
+                        console.log("Falling back to direct Firestore deletion");
+
+                        // Fallback to direct Firestore deletion
+                        try {
+                            // First get document chunks
+                            const chunksQuery = await db.collection('document_chunks')
+                                .where('document_id', '==', documentId)
+                                .get();
+
+                            console.log("Found document chunks:", chunksQuery.size);
+
+                            // Delete all chunks
+                            const chunkDeletions = [];
+                            chunksQuery.forEach(doc => {
+                                chunkDeletions.push(doc.ref.delete());
+                            });
+
+                            await Promise.all(chunkDeletions);
+                            console.log("Deleted document chunks");
+
+                            // Delete main document
+                            await db.collection('documents').doc(documentId).delete();
+                            console.log("Deleted main document");
+
+                            // Remove from local documents
+                            documents = documents.filter(doc => (doc.id !== documentId && doc.documentId !== documentId));
+                            renderDocuments();
+
+                            loadingOverlay.classList.add('hidden');
+                        } catch (firestoreError) {
+                            console.error('Firestore delete error:', firestoreError);
+                            showError('Failed to delete document: ' + firestoreError.message);
+                            loadingOverlay.classList.add('hidden');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error deleting document:', error);
+                    showError('Failed to delete document: ' + error.message);
+                    loadingOverlay.classList.add('hidden');
+                }
+            }
+
+            // Modify the checkAuthAndLoadData function in both files
+            function checkAuthAndLoadData() {
+                console.log("Checking authentication and loading data...");
+                
+                // Get user from Firebase Auth
+                const user = auth.currentUser || { uid: localStorage.getItem('userId') };
+                
+                if (!user || !user.uid) {
+                    // Not logged in, redirect to login page
+                    console.log("No authenticated user, redirecting to login");
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                console.log("User authenticated:", user.uid);
+                
+                // Set user name in header if available
+                if (user.displayName) {
+                    userName.textContent = user.displayName;
+                } else {
+                    userName.textContent = localStorage.getItem('userName') || 'User';
+                }
+                
+                // Check verification status in Firestore directly
+                db.collection('users').doc(user.uid).get().then((doc) => {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        console.log("User data retrieved:", userData);
+                        
+                        // Check both verified and verification_completed
+                        const isVerified = userData.verified === true && userData.verification_completed === true;
+                        console.log("User verified:", isVerified);
+                        
+                        if (isVerified) {
+                            // Store verification status in localStorage
+                            localStorage.setItem('isVerified', 'true');
+                            
+                            // User is verified, continue with dashboard/documents
+                            if (window.location.pathname === '/verification' || 
+                                window.location.pathname === '/selfie_verification') {
+                                // If on verification pages but already verified, redirect to dashboard
+                                window.location.href = '/dashboard';
+                                return;
+                            }
+                            
+                            // Continue with loading page content - fetch user details and documents
+                            // THIS IS THE KEY CHANGE: Always proceed with content loading if verified
+                            if (typeof fetchUserDetails === 'function') fetchUserDetails(user.uid);
+                            if (typeof fetchUserDocuments === 'function') fetchUserDocuments(user.uid);
+                            if (typeof fetchDocuments === 'function') fetchDocuments();
+                        } else {
+                            // User is not verified, show banner and/or redirect
+                            localStorage.setItem('isVerified', 'false');
+                            
+                            if (verificationBanner) {
+                                verificationBanner.classList.remove('hidden');
+                            }
+                            
+                            // Only redirect if not already on a verification page
+                            if (window.location.pathname !== '/verification' && 
+                                window.location.pathname !== '/selfie_verification') {
+                                window.location.href = '/verification';
+                                return;
+                            }
+                        }
+                    } else {
+                        console.log("User document not found");
+                        // User document not found, redirect to verification
+                        localStorage.setItem('isVerified', 'false');
+                        window.location.href = '/verification';
+                    }
+                }).catch((error) => {
+                    console.error("Error checking verification status:", error);
+                    // On error, assume not verified (safer approach)
+                    localStorage.setItem('isVerified', 'false');
+                    showError("Failed to load user data. Please try again.");
+                });
+            }
+
+            // Tab click handlers
+            tabAll.addEventListener('click', function() {
+                // Update selected tab
+                selectedTab = 'all';
+
+                // Update UI
+                tabAll.className = 'border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabAwaiting.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabCompleted.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabMine.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+
+                // Render documents
+                renderDocuments();
+            });
+
+            tabAwaiting.addEventListener('click', function() {
+                // Update selected tab
+                selectedTab = 'awaiting';
+
+                // Update UI
+                tabAll.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabAwaiting.className = 'border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabCompleted.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabMine.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+
+                // Render documents
+                renderDocuments();
+            });
+
+            tabCompleted.addEventListener('click', function() {
+                // Update selected tab
+                selectedTab = 'completed';
+
+                // Update UI
+                tabAll.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabAwaiting.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabCompleted.className = 'border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabMine.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+
+                // Render documents
+                renderDocuments();
+            });
+
+            tabMine.addEventListener('click', function() {
+                // Update selected tab
+                selectedTab = 'mine';
+
+                // Update UI
+                tabAll.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabAwaiting.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabCompleted.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                tabMine.className = 'border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+
+                // Render documents
+                renderDocuments();
+            });
+
+            // Upload button
+            uploadButton.addEventListener('click', function() {
+                window.location.href = '/upload';
+            });
+
+            emptyUploadButton.addEventListener('click', function() {
+                window.location.href = '/upload';
+            });
+
+            // Delete modal
+            confirmDelete.addEventListener('click', function() {
+                deleteDocument(deleteDocumentId);
+                deleteModal.classList.add('hidden');
+            });
+
+            cancelDelete.addEventListener('click', function() {
+                deleteDocumentId = null;
+                deleteModal.classList.add('hidden');
+            });
+
+            // Logout function
+            async function logout() {
+                try {
+                    await auth.signOut();
+
+                    // Clear local storage
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('userToken');
+                    localStorage.removeItem('userEmail');
+                    localStorage.removeItem('userName');
+                    localStorage.removeItem('isVerified');
+
+                    // Redirect to login page
+                    window.location.href = '/login';
+                } catch (error) {
+                    showError('Failed to log out: ' + error.message);
+                }
+            }
+
+            // Logout button
+            logoutButton.addEventListener('click', logout);
+
+            // Check authentication and load documents on page load
+            auth.onAuthStateChanged(function(user) {
+                if (user) {
+                    console.log("Auth state changed: User is signed in");
+                    checkAuthAndLoadData();
+                } else {
+                    console.log("Auth state changed: User is signed out");
+
+                    // Check local storage as fallback
+                    const userId = localStorage.getItem('userId');
+                    if (userId) {
+                        console.log("Using localStorage userId fallback");
+                        checkAuthAndLoadData();
+                    } else {
+                        // Not logged in, redirect to login page
+                        console.log("No user found, redirecting to login");
+                        window.location.href = '/login';
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

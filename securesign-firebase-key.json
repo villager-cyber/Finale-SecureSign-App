@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "digitalsignapplication",
+  "private_key_id": "771b65cf5a7ccdd1e4cf7f8abc06c605073e1319",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEuwIBADANBgkqhkiG9w0BAQEFAASCBKUwggShAgEAAoIBAQCydQo5+47L30Ki\nQVqyA8bnsGtMaGYzQbj8iZICPEDdWPw5JQFJAj7L2X5yKIS4tSRDKYnq9e547792\n31PNL3zEYXzeMRJAH6iWgvZrN9Ih5aX2f3jFrd9Chfhp3Qy0QYbZ9opctrsiXZAD\nYGHByG4L7i6jPUs0WsrCfWble8qUuEpknmp2GIcyGcxJGhySqUkkZ29RquPsLxWf\nlGmaHBfTSjv7siVEigawOM/7gp8NcgO5GJB2EmV+Ay2xFmhM30sfvG5wuPjuyIdP\nxT8XKXEs0kM5Rs8En+kS6SJbvuLvkwq6gRw0+uynw6rMhMS41GCoGj2xHU9xVlUg\nkvmS6Ty5AgMBAAECgf86jizM2b4BJ0C1/LvFrXeWjkymxZrDNs18D6fZE+w0tP4N\nwhap3hK80KCs1J63/LfpUbfvYMLe68vnNWBJ80r9JP/T6EYUxE6NFGvGwoowlSnf\nt/Po6SRYr5zTH7ULcHTPEBZWVZ8Rp6GZegaZjyqMv5qN9Y63nxLovj0FD5lpMoGq\nV/vzcYNx40WAaPmjXjf87UDGltgaVS6VnFPm9+LPmuWoTROgl2HxzAK3jCHse+Cc\nI7xKWp9x1uARusIGRseQ2Xc2wQZccPmATRDMtFXcKWVgsS3IwUNMx7hjeA9vuI53\n/iVJOu5C2N9df8h+b8XsunSpNVq2rAgsHZ2ZcAECgYEA9KK6A/JwJuEmvXHr1LVi\nR8+Tx0eaPRx7qVA70Oly4aZ57e/+gW2hn6cG5Ti3XeBQy3fOZoTHftwqijESSi7F\nSJm1z4HsgoVCfJhlPQtFhHneJZVUJ3k8x/O3H1G3iP/CjvE83VlRWKJatFAxijHq\n040xxw36aa9OMSn1+3SALoECgYEAur9NFmDUrNjelsv1+Hq1J92GuztOwy2jUSJD\nh+OReeU40EsZBZTfOrx1GfTnJE/SlnH/99677VdLeRymKw7COdx9YcmOyFjdZlH2\nqVvURmhLt2zSe20c5ACWhZKYRORKaOwp/gIi0oYWRROSxr0Zf9A8oypBU7XC0ibs\n4ILR4jkCgYEA2TUGrmx68bplWD2nI+Ssz4/Z6U2FAA+jKLDpe1Nbwki65+137tk1\ncPivYaTbAoohkpbcdyAbtWKsjqiFUcJ3Pj/kMstsAHNrlg8FjI7OeZJvELWm06mM\nswiMpk07BXP4/kvpO6uLU4RLvt+ZLNenZZBvCws5NM8HQRW9pzdIfIECgYBEHIfi\nNJj9HfA5cdSZty+hhaOhYGU+vMOHUQbuZirmGZuaJPnQVlcA1kGjoPY5AUAejR+9\n6SgDzcYCO1fD9pMShX/ZjakdG4RM0HI1nP+UWm/bS76NM+PIqQo9V5Vf8x/Mmu5J\n7b+Dp1IyCYyMHeZR/sJPBJdlD7Mp8PaOgEhKyQKBgDCwe8PTFjBC3RxNB11zcLC0\noaIQoIlaCdxuA+CdE6yavBur+j1wF6PkNhHcNJo/ufObzk3MZMnD8A3OeApjBu2V\nmW0aOq7+WFd3sP0Whv3FiCYLjAif5HYEfXwUQ3bHgJY30Y0EysLWjtmkBigwVZqj\nI9ICLaG9FMkAK3JacI+t\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@digitalsignapplication.iam.gserviceaccount.com",
+  "client_id": "114007738702862049438",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40digitalsignapplication.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
